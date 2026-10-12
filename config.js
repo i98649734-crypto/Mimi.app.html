@@ -6,7 +6,7 @@ const CONFIG = {
   API_BASE_URL_DEV: 'http://localhost:8000',
   
   // При боевом деплое на Vercel
-  API_BASE_URL_PROD: 'https://YOUR-REPLIT-BOT-URL.replit.dev',
+  API_BASE_URL_PROD: '',
   
   // Автоопределение
   get API_BASE_URL() {
