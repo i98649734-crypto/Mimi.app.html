@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>AI Tutor Pro</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="config.js"></script>
+<script src="utils.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root{
+    --bg:#0A0812;--bg-2:#0F0A1A;--text:#F5F0EB;--text-secondary:#7A7B8C;
+    --emerald:#00C896;--emerald-deep:#00A87D;--sapphire:#110D1F;--aqua:#7C6CFF;
+    --gold:#F6C770;--gold-base:#D4AF37;--gold-deep:#B8901F;
+    --purple:#36255C;--cosmic-blue:#062045;
+    --glass-bg:linear-gradient(155deg, rgba(54,37,92,0.32), rgba(17,13,31,0.62));
+    --glass-border:rgba(255,255,255,0.08);--glass-highlight:rgba(255,255,255,0.06);
+    --danger:#FF5C7A;
+    --safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);
+  }
+  html[data-theme="light"]{
+    --bg:#F7F4EF;--bg-2:#FFFFFF;--text:#1A1425;--text-secondary:#6B6478;
+    --sapphire:#F1ECE0;
+    --glass-bg:linear-gradient(155deg, rgba(255,255,255,0.85), rgba(247,242,235,0.72));
+    --glass-border:rgba(54,37,92,0.10);--glass-highlight:rgba(255,255,255,0.9);
+  }
+  html[data-accent="ruby"] #app,
+  html[data-accent="ruby"] .overlay,
+  html[data-accent="ruby"] #levelup-overlay,
+  html[data-accent="ruby"] #onboarding-overlay,
+  html[data-accent="ruby"] #confetti-canvas{
+    filter:hue-rotate(197deg) saturate(1.05);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
+  html,body{height:100%;background:var(--bg);}
+  body{
+    color:var(--text);
+    font-family:'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+    overscroll-behavior:none;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;}
+  button{font-family:inherit;border:none;background:none;color:inherit;cursor:pointer;}
+  input{font-family:inherit;}
+
+  .ambient{
+    position:fixed;inset:0;z-index:-2;pointer-events:none;
+    background:
+      radial-gradient(ellipse 90% 60% at 50% -10%, rgba(10,22,40,0.9), transparent 60%),
+      linear-gradient(180deg, var(--bg-2) 0%, var(--bg) 45%);
+  }
+  html[data-theme="light"] .ambient{
+    background:
+      radial-gradient(ellipse 90% 60% at 50% -10%, rgba(212,175,55,0.10), transparent 60%),
+      linear-gradient(180deg, var(--bg-2) 0%, var(--bg) 45%);
+  }
+  html[data-theme="light"] .grain{opacity:0.015;}
+  html[data-theme="light"] .aurora .orb{opacity:0.35;}
+  .aurora{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;}
+  .aurora .orb{position:absolute;border-radius:50%;filter:blur(70px);opacity:0.55;animation:orbFloat 14s ease-in-out infinite;}
+  .aurora .orb-1{width:340px;height:340px;left:-90px;top:6%;background:radial-gradient(circle, rgba(212,175,55,0.30), transparent 70%);animation-delay:0s;}
+  .aurora .orb-2{width:300px;height:300px;right:-80px;top:28%;background:radial-gradient(circle, rgba(124,108,255,0.26), transparent 70%);animation-delay:-5s;}
+  .aurora .orb-3{width:260px;height:260px;left:20%;bottom:8%;background:radial-gradient(circle, rgba(246,199,112,0.14), transparent 70%);animation-delay:-9s;}
+  @keyframes orbFloat{
+    0%,100%{transform:translate(0,0) scale(1);}
+    33%{transform:translate(14px,-18px) scale(1.08);}
+    66%{transform:translate(-10px,12px) scale(0.95);}
+  }
+  .grain{
+    position:fixed;inset:0;z-index:-1;opacity:0.03;pointer-events:none;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  #app{min-height:100vh;display:flex;flex-direction:column;}
+  #screens{flex:1;position:relative;overflow:hidden;padding-bottom:calc(78px + var(--safe-bottom));}
+  .screen{
+    position:absolute;inset:0;padding:calc(var(--safe-top) + 18px) 18px 24px;
+    overflow-y:auto;-webkit-overflow-scrolling:touch;
+    opacity:0;pointer-events:none;transform:translateX(24px);
+    transition:opacity .32s ease, transform .32s cubic-bezier(.2,.8,.2,1);
+  }
+  .screen.active{opacity:1;pointer-events:auto;transform:translateX(0);}
+  .screen.slide-back{transform:translateX(-24px);}
+
+  .screen.active > *{animation:riseIn .5s cubic-bezier(.2,.8,.2,1) backwards;}
+  .screen.active > *:nth-child(1){animation-delay:.03s;}
+  .screen.active > *:nth-child(2){animation-delay:.08s;}
+  .screen.active > *:nth-child(3){animation-delay:.13s;}
+  .screen.active > *:nth-child(4){animation-delay:.18s;}
+  .screen.active > *:nth-child(5){animation-delay:.23s;}
+  .screen.active > *:nth-child(6){animation-delay:.28s;}
+  @keyframes riseIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+
+  h1,h2,h3{font-weight:700;letter-spacing:-0.01em;}
+
+  .glass{
+    background:var(--glass-bg);border:1px solid var(--glass-border);
+    border-radius:24px;backdrop-filter:blur(20px) saturate(150%);
+    -webkit-backdrop-filter:blur(20px) saturate(150%);
+    box-shadow:0 1px 0 0 var(--glass-highlight) inset, 0 20px 44px -22px rgba(0,0,0,0.7);
+    position:relative;overflow:hidden;
+  }
+  .glass::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:1px;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass{background:linear-gradient(155deg, #16233C, #0B1526);}
+  }
+  .card{padding:22px;margin-bottom:16px;}
+
+  .loading-dots{display:flex;gap:6px;align-items:center;justify-content:center;padding:20px;}
+  .loading-dots span{
+    width:8px;height:8px;border-radius:50%;background:var(--emerald);
+    animation:dotPulse 1.2s ease-in-out infinite;
+  }
+  .loading-dots span:nth-child(2){animation-delay:.15s;}
+  .loading-dots span:nth-child(3){animation-delay:.3s;}
+  @keyframes dotPulse{0%,80%,100%{opacity:.25;transform:scale(0.8);}40%{opacity:1;transform:scale(1.15);}}
+
+  .error-box{text-align:center;padding:28px 20px;color:var(--text-secondary);font-size:14px;}
+  .error-box .ei{font-size:32px;display:block;margin-bottom:10px;}
+  .retry-btn{
+    margin-top:14px;display:inline-block;padding:10px 22px;border-radius:100px;
+    background:rgba(255,255,255,0.08);font-weight:600;font-size:13.5px;transition:background .2s ease;
+  }
+  .retry-btn:active{background:rgba(255,255,255,0.16);}
+
+  .skel{
+    background:linear-gradient(100deg, rgba(255,255,255,0.045) 30%, rgba(255,255,255,0.11) 50%, rgba(255,255,255,0.045) 70%);
+    background-size:200% 100%;animation:skelShimmer 1.6s ease-in-out infinite;border-radius:10px;
+  }
+  @keyframes skelShimmer{0%{background-position:180% 0;}100%{background-position:-20% 0;}}
+  .skel-line{height:14px;margin-bottom:10px;}
+  .skel-card{height:92px;border-radius:20px;margin-bottom:14px;}
+  .skel-row{display:flex;align-items:center;gap:12px;padding:15px 16px;margin-bottom:9px;border-radius:16px;background:rgba(255,255,255,0.03);}
+  .skel-circle{width:30px;height:30px;border-radius:50%;flex-shrink:0;}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:14px 22px;border-radius:100px;font-weight:700;font-size:14.5px;
+    transition:transform .15s ease, box-shadow .25s ease, filter .2s ease;
+    position:relative;overflow:hidden;
+  }
+  .btn:active{transform:scale(0.96);}
+  .btn-emerald{background:linear-gradient(135deg, #F6C770, var(--gold-base) 55%, var(--gold-deep));color:#241804;box-shadow:0 10px 24px -10px rgba(212,175,55,0.5);}
+  .btn-emerald:hover{filter:brightness(1.08);box-shadow:0 12px 30px -8px rgba(212,175,55,0.55);}
+  .btn-aqua{background:linear-gradient(135deg, #00E0B0, var(--emerald) 55%, var(--emerald-deep));color:#03150F;box-shadow:0 10px 24px -10px rgba(0,200,150,0.45);}
+  .btn-aqua:hover{filter:brightness(1.08);box-shadow:0 12px 30px -8px rgba(0,200,150,0.5);}
+  .btn-ghost{background:rgba(255,255,255,0.055);border:1px solid var(--glass-border);color:var(--text);box-shadow:0 1px 0 0 rgba(255,255,255,0.05) inset;}
+  .btn-ghost:active{background:rgba(255,255,255,0.1);}
+  .btn-block{width:100%;}
+  .btn[disabled]{opacity:.45;pointer-events:none;}
+  .btn-emerald::after, .btn-aqua::after{
+    content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;
+    background:linear-gradient(120deg, transparent, rgba(255,255,255,0.45), transparent);
+    transform:skewX(-20deg);animation:btnSheen 3.2s ease-in-out infinite;
+  }
+  @keyframes btnSheen{0%{left:-60%;}45%,100%{left:130%;}}
+
+  .svgicon{width:21px;height:21px;display:block;transition:transform .25s cubic-bezier(.34,1.56,.64,1);}
+  .tab .svgicon{color:var(--text-secondary);}
+  .tab.active .svgicon{color:var(--gold);filter:drop-shadow(0 0 6px rgba(212,175,55,0.5));}
+
+  .tabbar{
+    position:fixed;bottom:0;left:0;right:0;display:flex;z-index:60;
+    background:rgba(4,9,17,0.86);backdrop-filter:blur(22px) saturate(150%);
+    border-top:1px solid var(--glass-border);
+    box-shadow:0 -1px 0 0 rgba(255,255,255,0.05) inset, 0 -20px 50px -30px rgba(212,175,55,0.15);
+    padding:9px 6px calc(9px + var(--safe-bottom));
+  }
+  html[data-theme="light"] .tabbar{background:rgba(255,255,255,0.86);box-shadow:0 -1px 0 0 rgba(10,22,40,0.05) inset, 0 -20px 50px -30px rgba(212,175,55,0.12);}
+  html[data-theme="light"] .overlay{background:var(--bg);}
+  html[data-theme="light"] #onboarding-overlay{background:rgba(20,30,45,0.5);}
+  .tab{
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    color:var(--text-secondary);font-size:10.5px;font-weight:600;
+    padding:6px 0;border-radius:14px;transition:color .2s ease;
+  }
+  .tab .icon{display:block;}
+  .tab.active{color:var(--gold);}
+  .tab.active .svgicon{transform:translateY(-2px) scale(1.15);}
+  .tab:active .svgicon{transform:scale(0.85);}
+
+  .greeting{font-size:28px;font-weight:800;letter-spacing:-0.02em;margin-bottom:3px;position:relative;}
+  .greeting-sub{color:var(--text-secondary);font-size:14px;margin-bottom:22px;}
+  .home-hero{position:relative;padding-top:6px;margin-bottom:4px;}
+  .home-hero::before{
+    content:'';position:absolute;top:-40px;left:-18px;right:-18px;height:180px;z-index:-1;
+    background:radial-gradient(ellipse 70% 100% at 30% 0%, rgba(212,175,55,0.16), transparent 65%),
+               radial-gradient(ellipse 60% 100% at 90% 20%, rgba(246,199,112,0.10), transparent 60%);
+    pointer-events:none;
+  }
+
+  .streak-card{display:flex;align-items:center;gap:14px;}
+  .streak-card.risk{border-color:rgba(255,158,66,0.35);background:linear-gradient(155deg, rgba(255,158,66,0.12), rgba(8,14,26,0.5));}
+  .streak-flame{
+    font-size:34px;flex-shrink:0;
+    animation:flameFlicker 1.8s ease-in-out infinite;
+    filter:drop-shadow(0 0 12px rgba(246,199,112,0.5));
+  }
+  .streak-flame.risk{filter:drop-shadow(0 0 14px rgba(255,158,66,0.6));}
+  @keyframes flameFlicker{0%,100%{transform:scale(1) rotate(-2deg);}50%{transform:scale(1.08) rotate(2deg);}}
+  .streak-text .big{font-size:17px;font-weight:700;}
+  .streak-text .small{font-size:12.5px;color:var(--text-secondary);margin-top:2px;}
+
+  .continue-card{cursor:pointer;transition:transform .2s ease;}
+  .continue-card:active{transform:scale(0.98);}
+  .continue-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  .continue-top .label{font-size:12px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;}
+  .continue-top .arrow{color:var(--emerald);font-size:18px;}
+  .continue-subject{font-size:19px;font-weight:700;margin-bottom:10px;}
+
+  .xp-row{display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary);margin-bottom:9px;}
+  .xp-track{height:10px;border-radius:100px;background:rgba(255,255,255,0.06);overflow:hidden;position:relative;box-shadow:inset 0 1px 3px rgba(0,0,0,0.5);}
+  .xp-fill{
+    height:100%;border-radius:100px;width:0%;position:relative;overflow:hidden;
+    background:linear-gradient(90deg, var(--gold-deep), var(--gold-base) 55%, #F6C770);
+    box-shadow:0 0 12px rgba(212,175,55,0.55);
+    transition:width 1.4s cubic-bezier(.16,.84,.24,1);
+  }
+  .xp-fill::after{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,0.55),transparent);
+    width:40%;animation:xpWave 1.8s ease-in-out infinite;
+  }
+  @keyframes xpWave{0%{transform:translateX(-120%);}100%{transform:translateX(280%);}}
+  .level-badge{
+    font-family:'JetBrains Mono';font-weight:700;font-size:14.5px;
+    background:linear-gradient(135deg, #FFE8B8, var(--gold) 45%, var(--gold-deep));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  }
+
+  .ring-card{display:flex;align-items:center;gap:18px;}
+  .ring-wrap{position:relative;width:86px;height:86px;flex-shrink:0;}
+  .ring-wrap svg{transform:rotate(-90deg);}
+  .ring-track{fill:none;stroke:rgba(255,255,255,0.07);stroke-width:8;}
+  .ring-fill{
+    fill:none;stroke-width:8;stroke-linecap:round;
+    stroke:url(#ringGradient);
+    stroke-dasharray:227;stroke-dashoffset:227;
+    transition:stroke-dashoffset 1.6s cubic-bezier(.16,.84,.24,1);
+    filter:drop-shadow(0 0 6px rgba(212,175,55,0.55));
+  }
+  .ring-center{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .ring-center .rn{font-family:'JetBrains Mono';font-weight:800;font-size:22px;
+    background:linear-gradient(135deg, #FFE8B8, var(--gold) 45%, var(--gold-deep));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  .ring-center .rl{font-size:9px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.06em;margin-top:-2px;}
+  .ring-info{flex:1;}
+  .ring-info .rt{font-size:13px;color:var(--text-secondary);margin-bottom:4px;}
+  .ring-info .rv{font-family:'JetBrains Mono';font-weight:700;font-size:16px;}
+
+  .streak-cal{display:flex;justify-content:space-between;gap:5px;margin-top:14px;}
+  .streak-cal-day{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;}
+  .streak-cal-day .sc-label{font-size:9.5px;color:var(--text-secondary);text-transform:uppercase;}
+  .streak-cal-day .sc-dot{
+    width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,0.05);border:1px solid var(--glass-border);font-size:12px;
+    transition:all .3s ease;
+  }
+  .streak-cal-day .sc-dot.solved{
+    background:linear-gradient(135deg, #F6C770, var(--gold-base));
+    border-color:transparent;box-shadow:0 0 10px rgba(212,175,55,0.5);color:#241804;
+  }
+  .streak-cal-day .sc-dot.today{border-color:var(--gold);box-shadow:0 0 0 2px rgba(246,199,112,0.2);}
+
+  .bonus-card{
+    display:flex;align-items:center;gap:14px;cursor:pointer;
+    background:linear-gradient(135deg, rgba(246,199,112,0.14), rgba(212,175,55,0.06));
+    border-color:rgba(246,199,112,0.3);transition:transform .2s ease;
+  }
+  .bonus-card:active{transform:scale(0.97);}
+  .bonus-card.claimed{background:rgba(255,255,255,0.03);border-color:var(--glass-border);}
+  .bonus-card.claimed .bonus-icon{animation:none;filter:none;opacity:0.6;}
+  .bonus-icon{
+    font-size:32px;flex-shrink:0;filter:drop-shadow(0 0 14px rgba(246,199,112,0.6));
+    animation:bonusPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes bonusPulse{0%,100%{transform:scale(1) rotate(-3deg);}50%{transform:scale(1.08) rotate(3deg);}}
+  .bonus-text .bt-big{font-size:15px;font-weight:700;}
+  .bonus-text .bt-small{font-size:12px;color:var(--text-secondary);margin-top:2px;}
+
+  .quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+  .quick-btn{
+    background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);border-radius:18px;
+    padding:18px 14px;text-align:left;transition:transform .18s ease, border-color .2s ease, background .2s ease;
+  }
+  .quick-btn:active{transform:scale(0.95);background:rgba(255,255,255,0.09);}
+  .quick-btn .qi{font-size:23px;margin-bottom:8px;display:block;transition:transform .2s ease;}
+  .quick-btn:active .qi{transform:scale(1.25) rotate(-8deg);}
+  .quick-btn .qi-svg{width:24px;height:24px;margin-bottom:9px;color:var(--gold);transition:transform .2s ease;}
+  .quick-btn:active .qi-svg{transform:scale(1.2);}
+  .quick-btn .qt{font-size:13.5px;font-weight:700;}
+
+  .stat-mini{display:flex;gap:10px;}
+  .stat-chip{flex:1;background:rgba(255,255,255,0.04);border-radius:16px;padding:14px 10px;text-align:center;}
+  .stat-chip .num{font-family:'JetBrains Mono';font-weight:700;font-size:19px;color:var(--gold);}
+  .stat-chip .lab{font-size:10.5px;color:var(--text-secondary);margin-top:3px;}
+
+  .exam-pills{display:flex;gap:9px;margin-bottom:16px;}
+  .pill{
+    flex:1;text-align:center;padding:12px;border-radius:100px;font-weight:700;font-size:13.5px;
+    background:rgba(255,255,255,0.05);border:1px solid var(--glass-border);transition:all .25s ease;
+  }
+  .pill.active{background:linear-gradient(135deg,#F6C770,var(--gold-base));color:#241804;border-color:transparent;box-shadow:0 0 20px rgba(212,175,55,0.3);}
+
+  .subject-row{
+    display:flex;align-items:center;gap:12px;
+    background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);border-radius:16px;
+    padding:15px 16px;margin-bottom:9px;transition:transform .15s ease, background .2s ease;
+  }
+  .subject-row:active{transform:scale(0.98);background:rgba(255,255,255,0.08);}
+  .subject-icon{
+    font-size:17px;width:38px;height:38px;border-radius:50%;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .subject-info{flex:1;}
+  .subject-info .name{font-weight:600;font-size:14.5px;margin-bottom:6px;}
+  .subject-track{height:5px;border-radius:100px;background:rgba(255,255,255,0.08);overflow:hidden;}
+  .subject-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--emerald),var(--aqua));width:0%;transition:width 1s ease;}
+  .subject-pct{font-family:'JetBrains Mono';font-size:12.5px;color:var(--emerald);width:38px;text-align:right;}
+
+  .overlay{
+    position:fixed;inset:0;z-index:80;background:var(--bg);
+    transform:translateY(100%);transition:transform .38s cubic-bezier(.19,1,.22,1);
+    display:flex;flex-direction:column;
+  }
+  .overlay.open{transform:translateY(0);}
+  .overlay-header{
+    display:flex;align-items:center;gap:12px;padding:calc(var(--safe-top) + 16px) 18px 14px;
+    border-bottom:1px solid var(--glass-border);
+  }
+  .overlay-back{font-size:22px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,0.06);}
+  .overlay-back:active{background:rgba(255,255,255,0.14);}
+  .overlay-title{font-size:18px;font-weight:700;flex:1;}
+  .overlay-tabs{display:flex;gap:6px;padding:12px 18px;border-bottom:1px solid var(--glass-border);overflow-x:auto;}
+  .overlay-tab{
+    padding:9px 16px;border-radius:100px;font-size:13px;font-weight:600;white-space:nowrap;
+    background:rgba(255,255,255,0.05);color:var(--text-secondary);transition:all .2s ease;
+  }
+  .overlay-tab.active{background:var(--emerald);color:#000;}
+  .overlay-body{flex:1;overflow-y:auto;padding:18px;}
+
+  .task-card{padding:20px;}
+  .task-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .task-meta .tag{font-size:11.5px;color:var(--text-secondary);font-family:'JetBrains Mono';}
+  .task-meta .stars{color:var(--gold);font-size:13px;}
+  .task-question{font-size:15.5px;line-height:1.55;margin-bottom:18px;}
+  .answer-input{
+    width:100%;padding:14px 16px;border-radius:14px;background:rgba(255,255,255,0.05);
+    border:1px solid var(--glass-border);color:var(--text);font-size:15px;margin-bottom:14px;
+    transition:border-color .2s ease;
+  }
+  .answer-input:focus{outline:none;border-color:var(--emerald);}
+  .task-actions{display:flex;gap:10px;flex-wrap:wrap;}
+  .task-feedback{
+    margin-top:14px;padding:14px 16px;border-radius:14px;font-size:14px;font-weight:600;
+    animation:riseIn .3s ease;
+  }
+  .task-feedback.correct{background:rgba(0,245,160,0.12);color:var(--emerald);border:1px solid rgba(0,245,160,0.3);}
+  .task-feedback.incorrect{background:rgba(255,92,122,0.12);color:var(--danger);border:1px solid rgba(255,92,122,0.3);}
+  .hint-box{
+    margin-top:14px;padding:16px;border-radius:14px;background:rgba(124,108,255,0.08);
+    border:1px solid rgba(124,108,255,0.25);font-size:14px;line-height:1.6;white-space:pre-wrap;
+    animation:riseIn .3s ease;
+  }
+  .theory-box{font-size:14.5px;line-height:1.7;white-space:pre-wrap;}
+  .fipi-select{
+    padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.05);
+    border:1px solid var(--glass-border);color:var(--text);font-size:13px;flex:none;
+  }
+  .fipi-select:focus{outline:none;border-color:var(--emerald);}
+  .adaptive-tag{
+    display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--emerald);
+    background:rgba(0,245,160,0.08);border:1px solid rgba(0,245,160,0.22);padding:5px 11px;
+    border-radius:100px;margin-bottom:14px;
+  }
+  .photo-btn{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    padding:12px;border-radius:14px;background:rgba(124,108,255,0.08);
+    border:1px dashed rgba(124,108,255,0.35);color:var(--aqua);font-size:13px;font-weight:600;
+    margin-bottom:6px;transition:background .2s ease;cursor:pointer;
+  }
+  .photo-btn:active{background:rgba(124,108,255,0.16);}
+
+  .quiz-intro{text-align:center;padding:20px 8px;}
+  .quiz-intro .qicon{font-size:52px;margin-bottom:14px;display:block;}
+  .quiz-count-row{display:flex;gap:10px;justify-content:center;margin:22px 0;}
+  .count-btn{
+    width:58px;height:58px;border-radius:50%;background:rgba(255,255,255,0.05);
+    border:1px solid var(--glass-border);font-family:'JetBrains Mono';font-weight:700;font-size:17px;
+    transition:all .2s ease;
+  }
+  .count-btn.active{background:var(--emerald);color:#000;border-color:var(--emerald);}
+
+  .quiz-progress{display:flex;gap:5px;margin-bottom:20px;}
+  .quiz-progress .seg{flex:1;height:5px;border-radius:100px;background:rgba(255,255,255,0.08);overflow:hidden;}
+  .quiz-progress .seg.done{background:var(--emerald);}
+  .quiz-progress .seg.current{background:linear-gradient(90deg,var(--aqua),var(--emerald));}
+
+  .quiz-subject-tag{
+    display:inline-block;font-size:11.5px;font-weight:700;color:var(--aqua);
+    background:rgba(124,108,255,0.1);padding:5px 12px;border-radius:100px;margin-bottom:14px;
+  }
+  .quiz-question{font-size:18px;font-weight:600;line-height:1.4;margin-bottom:22px;}
+  .quiz-options{display:flex;flex-direction:column;gap:10px;}
+  .quiz-option{
+    text-align:left;padding:16px 18px;border-radius:16px;
+    background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);
+    font-size:14.5px;font-weight:500;transition:all .2s ease;
+  }
+  .quiz-option:active{transform:scale(0.98);}
+  .quiz-option.correct{background:rgba(0,245,160,0.16);border-color:var(--emerald);color:var(--emerald);animation:optionPop .3s ease;}
+  .quiz-option.incorrect{background:rgba(255,92,122,0.16);border-color:var(--danger);color:var(--danger);animation:optionShake .35s ease;}
+  .quiz-option.disabled{pointer-events:none;opacity:.55;}
+  @keyframes optionPop{0%{transform:scale(1);}50%{transform:scale(1.03);}100%{transform:scale(1);}}
+  @keyframes optionShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+
+  .quiz-result{text-align:center;padding:30px 10px;}
+  .quiz-result .ricon{font-size:56px;display:block;margin-bottom:14px;}
+  .quiz-result .rscore{font-family:'JetBrains Mono';font-size:40px;font-weight:700;color:var(--emerald);margin-bottom:6px;}
+  .quiz-result .rxp{color:var(--gold);font-weight:700;font-size:16px;margin-bottom:26px;}
+
+  .rank-status{
+    display:flex;align-items:center;gap:14px;padding:20px;
+    background:linear-gradient(135deg, rgba(212,175,55,0.1), rgba(124,108,255,0.08));
+    border:1px solid rgba(212,175,55,0.25);border-radius:20px;margin-bottom:16px;
+  }
+  .rank-status .rnum{font-family:'JetBrains Mono';font-size:30px;font-weight:700;color:var(--emerald);}
+  .rank-status .rtext{font-size:13.5px;color:var(--text-secondary);}
+
+  .challenge-card{
+    background:linear-gradient(135deg, rgba(212,175,55,0.1), rgba(124,108,255,0.08));
+    border:1px solid rgba(212,175,55,0.28);border-radius:20px;padding:20px;
+  }
+  .challenge-card h3{font-size:16.5px;margin-bottom:6px;}
+  .challenge-card p{font-size:13.5px;color:var(--text-secondary);margin-bottom:16px;}
+
+  .leader-row{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--glass-border);}
+  .leader-row:last-child{border-bottom:none;}
+  .leader-rank{width:24px;font-family:'JetBrains Mono';font-weight:700;color:var(--text-secondary);font-size:13.5px;}
+  .leader-avatar{
+    width:34px;height:34px;border-radius:50%;flex-shrink:0;
+    background:linear-gradient(135deg,var(--emerald),var(--aqua));
+    display:flex;align-items:center;justify-content:center;font-weight:700;color:#000;font-size:13px;
+  }
+  .leader-name{flex:1;font-size:13.5px;font-weight:600;}
+  .leader-xp{font-family:'JetBrains Mono';font-size:12.5px;color:var(--gold);}
+  .leader-row.me{background:rgba(212,175,55,0.07);border-radius:12px;border-bottom:none;padding:11px 10px;}
+
+  .profile-head{display:flex;align-items:center;gap:16px;margin-bottom:6px;}
+  .profile-avatar{
+    width:66px;height:66px;border-radius:50%;flex-shrink:0;
+    background:linear-gradient(135deg,var(--emerald),var(--aqua));
+    display:flex;align-items:center;justify-content:center;font-size:27px;font-weight:800;color:#000;
+    box-shadow:0 0 24px rgba(212,175,55,0.3);
+  }
+  .profile-name{font-size:19px;font-weight:700;}
+  .profile-meta{font-size:12.5px;color:var(--text-secondary);margin-top:3px;}
+
+  .badge-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .badge-card{
+    background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);border-radius:16px;
+    padding:16px 10px;text-align:center;transition:all .2s ease;
+  }
+  .badge-card.earned{border-color:rgba(246,199,112,0.4);background:rgba(246,199,112,0.06);}
+  .badge-card.locked{opacity:.32;}
+  .badge-card .bi{font-size:27px;display:block;margin-bottom:7px;}
+  .badge-card .bt{font-size:11px;font-weight:600;line-height:1.3;}
+  .badge-progress{margin-top:8px;}
+  .badge-progress-track{height:4px;border-radius:100px;background:rgba(255,255,255,0.08);overflow:hidden;}
+  .badge-progress-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--aqua),var(--emerald));}
+  .badge-progress-label{font-size:9.5px;color:var(--text-secondary);margin-top:4px;font-family:'JetBrains Mono';}
+
+  .settings-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .settings-label{font-size:13px;color:var(--text-secondary);flex-shrink:0;}
+  .segmented{display:flex;gap:6px;background:rgba(255,255,255,0.04);border-radius:100px;padding:4px;flex:1;}
+  .seg-btn{
+    flex:1;display:flex;align-items:center;justify-content:center;gap:5px;
+    padding:8px 10px;border-radius:100px;font-size:11.5px;font-weight:600;color:var(--text-secondary);
+    transition:all .2s ease;white-space:nowrap;
+  }
+  .seg-btn.active{background:var(--emerald);color:#03150F;}
+  .swatch{width:9px;height:9px;border-radius:50%;display:inline-block;}
+  .parent-code-box{display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,0.04);border-radius:14px;padding:12px 14px;}
+  .parent-code{font-family:'JetBrains Mono';font-weight:700;font-size:18px;letter-spacing:.1em;color:var(--gold);}
+
+  #levelup-overlay{
+    position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.82);
+    display:flex;align-items:center;justify-content:center;flex-direction:column;
+    opacity:0;pointer-events:none;transition:opacity .3s ease;
+  }
+  #levelup-overlay.show{opacity:1;pointer-events:auto;}
+  #levelup-overlay .lu-icon{font-size:64px;animation:luPop .6s cubic-bezier(.34,1.56,.64,1);filter:drop-shadow(0 0 30px rgba(212,175,55,0.6));}
+  #levelup-overlay .lu-title{font-size:26px;font-weight:800;margin-top:16px;background:linear-gradient(90deg,var(--emerald),var(--aqua));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  #levelup-overlay .lu-sub{color:var(--text-secondary);margin-top:6px;font-size:14px;}
+  @keyframes luPop{0%{transform:scale(0.3) rotate(-15deg);opacity:0;}60%{transform:scale(1.2) rotate(5deg);opacity:1;}100%{transform:scale(1) rotate(0);}}
+
+  #confetti-canvas{position:fixed;inset:0;z-index:150;pointer-events:none;}
+
+  #onboarding-overlay{
+    position:fixed;inset:0;z-index:190;background:rgba(0,0,0,0.72);backdrop-filter:blur(4px);
+    display:flex;align-items:center;justify-content:center;padding:24px;
+    opacity:0;pointer-events:none;transition:opacity .3s ease;
+  }
+  #onboarding-overlay.show{opacity:1;pointer-events:auto;}
+  .ob-card{padding:30px 26px;text-align:center;max-width:340px;width:100%;animation:riseIn .4s ease;}
+  .ob-icon{font-size:44px;margin-bottom:14px;}
+  .ob-title{font-size:19px;font-weight:700;margin-bottom:8px;}
+  .ob-text{font-size:13.5px;color:var(--text-secondary);line-height:1.6;margin-bottom:20px;}
+  .ob-dots{display:flex;gap:6px;justify-content:center;margin-bottom:20px;}
+  .ob-dots span{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.18);transition:all .25s ease;}
+  .ob-dots span.active{background:var(--emerald);width:18px;border-radius:100px;}
+  .ob-skip{display:block;margin:12px auto 0;color:var(--text-secondary);font-size:12.5px;text-decoration:underline;}
+
+  #toast{
+    position:fixed;left:50%;bottom:100px;transform:translateX(-50%) translateY(20px);
+    background:rgba(20,20,20,0.95);border:1px solid var(--glass-border);
+    padding:12px 20px;border-radius:100px;font-size:13.5px;z-index:250;
+    opacity:0;transition:all .3s ease;pointer-events:none;max-width:88%;text-align:center;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true">
+  <defs>
+    <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F6C770"/>
+      <stop offset="100%" stop-color="#D4AF37"/>
+    </linearGradient>
+  </defs>
+  <symbol id="icon-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/>
+  </symbol>
+  <symbol id="icon-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 19.5V5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2Z"/><path d="M4 19.5A2 2 0 0 1 6 17.5h13"/>
+  </symbol>
+  <symbol id="icon-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 3 4 14h6l-1 7 9-11h-6l1-7Z"/>
+  </symbol>
+  <symbol id="icon-trophy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 4h8v5a4 4 0 0 1-8 0V4Z"/><path d="M8 5H5a1 1 0 0 0-1 1v1a4 4 0 0 0 4 4"/><path d="M16 5h3a1 1 0 0 1 1 1v1a4 4 0 0 1-4 4"/><path d="M12 13v3"/><path d="M8 20h8"/><path d="M9.5 16h5l.7 4h-6.4l.7-4Z"/>
+  </symbol>
+  <symbol id="icon-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>
+  </symbol>
+  <symbol id="icon-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3s5 4.2 5 9.5A5 5 0 0 1 7 12.5C7 10 8.5 8.5 8.5 8.5S8 12 12 13c1.6-2.5 0-6 0-6Z"/>
+  </symbol>
+  <symbol id="icon-medal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="14" r="6"/><path d="M9 4 6 10"/><path d="M15 4l3 6"/><path d="M12 11.5 13.4 14l2.1.3-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2.1-.3 1.4-2.5Z"/>
+  </symbol>
+  <symbol id="icon-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/>
+  </symbol>
+  <symbol id="icon-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9Z"/><circle cx="12" cy="13" r="3.4"/>
+  </symbol>
+  <symbol id="icon-bulb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.5.4.8 1 .8 1.6v.5h5.4v-.5c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3Z"/>
+  </symbol>
+  <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 12.5 9.5 17 19 7"/>
+  </symbol>
+  <symbol id="icon-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 12h14"/><path d="M13 6l6 6-6 6"/>
+  </symbol>
+  <symbol id="icon-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="6" cy="12" r="2.4"/><circle cx="17" cy="6" r="2.4"/><circle cx="17" cy="18" r="2.4"/><path d="M8.1 10.8 15 7"/><path d="M8.1 13.2 15 17"/>
+  </symbol>
+  <symbol id="icon-mascot" viewBox="0 0 64 64">
+    <circle cx="32" cy="34" r="22" fill="url(#ringGradient)" opacity="0.15"/>
+    <ellipse cx="32" cy="36" rx="18" ry="17" fill="#0F1E36" stroke="#00F5A0" stroke-width="1.5"/>
+    <circle cx="24" cy="33" r="6.5" fill="#04060A" stroke="#00F5A0" stroke-width="1.5"/>
+    <circle cx="40" cy="33" r="6.5" fill="#04060A" stroke="#00F5A0" stroke-width="1.5"/>
+    <circle cx="24" cy="33" r="2.6" fill="#00F5A0"/>
+    <circle cx="40" cy="33" r="2.6" fill="#00F5A0"/>
+    <path d="M29 40 32 43 35 40" stroke="#F6C770" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M20 22 26 27" stroke="#00F5A0" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M44 22 38 27" stroke="#00F5A0" stroke-width="1.5" stroke-linecap="round"/>
+    <ellipse cx="14" cy="40" rx="4" ry="6" fill="#0F1E36" stroke="#00F5A0" stroke-width="1.3" transform="rotate(-18 14 40)"/>
+    <ellipse cx="50" cy="40" rx="4" ry="6" fill="#0F1E36" stroke="#00F5A0" stroke-width="1.3" transform="rotate(18 50 40)"/>
+  </symbol>
+</svg>
+
+<div class="ambient"></div>
+<div class="aurora"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
+<div class="grain"></div>
+
+<div id="app">
+  <main id="screens">
+    <section class="screen active" id="screen-home" data-index="0"></section>
+    <section class="screen" id="screen-learn" data-index="1"></section>
+    <section class="screen" id="screen-quiz" data-index="2"></section>
+    <section class="screen" id="screen-compete" data-index="3"></section>
+    <section class="screen" id="screen-profile" data-index="4"></section>
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab active" data-tab="home" onclick="Nav.go('home')"><svg class="svgicon"><use href="#icon-home"/></svg>Главная</button>
+    <button class="tab" data-tab="learn" onclick="Nav.go('learn')"><svg class="svgicon"><use href="#icon-book"/></svg>Обучение</button>
+    <button class="tab" data-tab="quiz" onclick="Nav.go('quiz')"><svg class="svgicon"><use href="#icon-bolt"/></svg>Переменка</button>
+    <button class="tab" data-tab="compete" onclick="Nav.go('compete')"><svg class="svgicon"><use href="#icon-trophy"/></svg>Турнир</button>
+    <button class="tab" data-tab="profile" onclick="Nav.go('profile')"><svg class="svgicon"><use href="#icon-user"/></svg>Профиль</button>
+  </nav>
+</div>
+
+<div class="overlay" id="subject-overlay">
+  <div class="overlay-header">
+    <button class="overlay-back" onclick="SubjectDetail.close()">←</button>
+    <div class="overlay-title" id="subject-overlay-title">Предмет</div>
+  </div>
+  <div class="overlay-tabs">
+    <button class="overlay-tab active" data-mode="theory" onclick="SubjectDetail.setMode('theory')">📖 Теория</button>
+    <button class="overlay-tab" data-mode="practice" onclick="SubjectDetail.setMode('practice')">✏️ Практика</button>
+    <button class="overlay-tab" data-mode="homework" onclick="SubjectDetail.setMode('homework')">🏠 Домашка</button>
+    <button class="overlay-tab" data-mode="mock" onclick="SubjectDetail.setMode('mock')">📝 Пробники</button>
+  </div>
+  <div class="overlay-body" id="subject-overlay-body"></div>
+</div>
+
+<div class="overlay" id="fipi-search-overlay">
+  <div class="overlay-header">
+    <button class="overlay-back" onclick="FipiSearch.close()">←</button>
+    <div class="overlay-title">Банк ФИПИ</div>
+  </div>
+  <div style="padding:14px 18px;border-bottom:1px solid var(--glass-border);">
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <input type="text" class="answer-input" id="fipi-search-input" placeholder="Поиск по теме или слову..." style="margin-bottom:0;flex:1;">
+      <button class="btn btn-emerald" style="padding:12px 16px;" onclick="FipiSearch.run()"><svg class="svgicon" style="width:17px;height:17px;"><use href="#icon-search"/></svg></button>
+    </div>
+    <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;">
+      <select id="fipi-search-subject" class="fipi-select"><option value="">Все предметы</option></select>
+      <select id="fipi-search-exam" class="fipi-select">
+        <option value="">Любой экзамен</option>
+        <option value="ОГЭ">ОГЭ</option>
+        <option value="ЕГЭ">ЕГЭ</option>
+        <option value="ВПР">ВПР</option>
+      </select>
+      <input type="number" id="fipi-search-number" class="fipi-select" placeholder="№" style="width:64px;flex:none;">
+    </div>
+    <button class="btn btn-ghost btn-block" style="margin-top:10px;" onclick="FipiSearch.random()">🎲 Случайное задание</button>
+  </div>
+  <div class="overlay-body" id="fipi-search-body"></div>
+</div>
+
+<div id="levelup-overlay">
+  <span class="lu-icon">🚀</span>
+  <div class="lu-title" id="levelup-title">Новый уровень!</div>
+  <div class="lu-sub" id="levelup-sub">Так держать!</div>
+</div>
+
+<div id="onboarding-overlay">
+  <div class="ob-card glass">
+    <div class="ob-icon" id="ob-icon"><svg class="svgicon" style="width:56px;height:56px;"><use href="#icon-mascot"/></svg></div>
+    <div class="ob-title" id="ob-title">Добро пожаловать!</div>
+    <div class="ob-text" id="ob-text">Коротко покажем, что здесь есть.</div>
+    <div class="ob-dots" id="ob-dots"></div>
+    <button class="btn btn-emerald btn-block" id="ob-next" onclick="Onboarding.next()">Дальше</button>
+    <button class="ob-skip" onclick="Onboarding.finish()">Пропустить</button>
+  </div>
+</div>
+
+<canvas id="confetti-canvas"></canvas>
+<div id="toast"></div>
+
+<script>
+/* =====================================================================
+   КОНФИГУРАЦИЯ
+   ===================================================================== */
+const API_BASE_URL = CONFIG.API_BASE_URL;
+const DEV_USER_ID = '123456789';
+
+/* =====================================================================
+   TELEGRAM WEBAPP INIT
+   ===================================================================== */
+const tg = window.Telegram ? window.Telegram.WebApp : null;
+if (tg) {
+  tg.ready();
+  tg.expand();
+  tg.setHeaderColor('#000000');
+  tg.setBackgroundColor('#000000');
+}
+const tgUser = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) || null;
+const IS_INSIDE_TELEGRAM = !!(tg && tg.initData);
+
+function haptic(style){
+  if (!tg || !tg.HapticFeedback) return;
+  if (style === 'success' || style === 'error' || style === 'warning') {
+    tg.HapticFeedback.notificationOccurred(style);
+  } else {
+    tg.HapticFeedback.impactOccurred(style || 'light');
+  }
+}
+
+/* =====================================================================
+   API-КЛИЕНТ
+   ===================================================================== */
+const Api = {
+  request: function(path, opts){
+    opts = opts || {};
+    const method = opts.method || 'GET';
+    const body = opts.body || null;
+    const headers = { 'Content-Type': 'application/json' };
+    if (IS_INSIDE_TELEGRAM) {
+      headers['X-Telegram-Init-Data'] = tg.initData;
+    } else {
+      headers['X-Dev-User-Id'] = DEV_USER_ID;
+    }
+    return fetch(API_BASE_URL + path, {
+      method: method,
+      headers: headers,
+      body: body ? JSON.stringify(body) : null,
+    }).then(function(resp){
+      if (!resp.ok) {
+        return resp.json().catch(function(){ return {}; }).then(function(data){
+          throw new Error(data.detail || 'Ошибка сервера');
+        });
+      }
+      return resp.json();
+    }).catch(function(err){
+      const mock = DemoData.resolve(path, method, body);
+      if (mock !== undefined) return mock;
+      throw err;
+    });
+  },
+  get: function(path){ return this.request(path); },
+  post: function(path, body){ return this.request(path, { method: 'POST', body: body }); },
+};
+
+/* =====================================================================
+   ДЕМО-ДАННЫЕ (используются автоматически, если backend недоступен)
+   ===================================================================== */
+const DemoData = {
+  quizPool: [
+    { id: 9001, subject: 'Математика', question: 'Сколько будет 8 × 7?', options: ['54', '56', '58', '64'], _correct: 1 },
+    { id: 9002, subject: 'Русский язык', question: 'Сколько падежей в русском языке?', options: ['4', '5', '6', '7'], _correct: 2 },
+    { id: 9003, subject: 'Биология', question: 'Сколько камер в сердце человека?', options: ['2', '3', '4', '5'], _correct: 2 },
+    { id: 9004, subject: 'География', question: 'Столица Японии?', options: ['Пекин', 'Сеул', 'Токио', 'Осака'], _correct: 2 },
+    { id: 9005, subject: 'Английский язык', question: "Choose correct: 'She ___ a student.'", options: ['am', 'is', 'are', 'be'], _correct: 1 },
+    { id: 9006, subject: 'Физика', question: 'В каких единицах измеряется сила?', options: ['ватт', 'джоуль', 'ньютон', 'паскаль'], _correct: 2 },
+    { id: 9007, subject: 'История', question: 'В каком году началась ВОВ?', options: ['1939', '1940', '1941', '1942'], _correct: 2 },
+    { id: 9008, subject: 'Информатика', question: 'Сколько бит в байте?', options: ['4', '8', '16', '32'], _correct: 1 },
+  ],
+  fipiTask: function(subject){
+    return {
+      id: 8001, subject: subject || 'Математика', exam_type: 'ОГЭ', task_number: 5,
+      question: 'Решите уравнение: $3x - 7 = 11$.', answer: 'x = 6', difficulty: 2,
+    };
+  },
+  resolve: function(path, method, body){
+    const p = path.split('?')[0];
+
+    if (p === '/api/profile' && method === 'GET') {
+      return {
+        user_id: 999, full_name: 'Александра', grade: 9, goal: 'ОГЭ',
+        xp: 640, xp_in_level: 40, xp_to_next_level: 100, level: 7,
+        streak_days: 5, rank: 3, gap_to_next_rank: 120, today_solved: 2,
+        onboarded: true,
+        streak_calendar: (function(){
+          const days = []; const today = new Date();
+          const pattern = [true, true, false, true, true, true, true];
+          for (let i = 6; i >= 0; i--) {
+            const d = new Date(today); d.setDate(d.getDate() - i);
+            days.push({ date: d.toISOString().slice(0, 10), solved: pattern[6 - i], is_today: i === 0 });
+          }
+          return days;
+        })(),
+        daily_bonus_available: true,
+        streak_freezes: 2,
+        freeze_used_today: false,
+        theme: (ThemeManager && ThemeManager.current.theme) || 'dark',
+        accent: (ThemeManager && ThemeManager.current.accent) || 'emerald',
+      };
+    }
+    if (p === '/api/subjects' && method === 'GET') {
+      return { subjects: [
+        { name: 'Математика', pct: 92, solved: 40 }, { name: 'Русский язык', pct: 81, solved: 33 },
+        { name: 'Физика', pct: 74, solved: 21 }, { name: 'Химия', pct: 60, solved: 15 },
+        { name: 'Биология', pct: 88, solved: 26 }, { name: 'История', pct: 55, solved: 12 },
+        { name: 'Обществознание', pct: 70, solved: 18 }, { name: 'География', pct: 66, solved: 14 },
+        { name: 'Английский язык', pct: 79, solved: 22 }, { name: 'Информатика', pct: 83, solved: 19 },
+        { name: 'Литература', pct: 58, solved: 11 },
+      ]};
+    }
+    if (p === '/api/leaderboard' && method === 'GET') {
+      return {
+        leaderboard: [
+          { user_id: 1, name: 'Мария К.', xp: 1240, level: 12 },
+          { user_id: 2, name: 'Данил П.', xp: 1180, level: 11 },
+          { user_id: 999, name: 'Александра', xp: 640, level: 7 },
+          { user_id: 4, name: 'Соня В.', xp: 590, level: 6 },
+          { user_id: 5, name: 'Игорь Т.', xp: 510, level: 6 },
+        ],
+        my_rank: 3, gap_to_next_rank: 540,
+      };
+    }
+    if (p === '/api/achievements' && method === 'GET') {
+      return { achievements: [
+        { code: 'first_task', title: '🥇 Первое задание решено!', earned: true },
+        { code: 'streak_3', title: '🔥 3 дня подряд с ботом', earned: true },
+        { code: 'streak_7', title: '⚡ Неделя без пропусков', earned: false, progress: { current: 5, target: 7 } },
+        { code: 'level_5', title: '🚀 Достиг 5 уровня', earned: true },
+        { code: 'level_10', title: '🌟 Достиг 10 уровня', earned: false, progress: { current: 7, target: 10 } },
+        { code: 'hundred_correct', title: '🧠 100 правильных ответов', earned: false, progress: { current: 62, target: 100 } },
+        { code: 'quiz_perfect', title: '🎯 Переменка без единой ошибки', earned: false },
+      ]};
+    }
+    if (p === '/api/profile/history' && method === 'GET') {
+      return { history: [
+        { week: '1', correct: 8, total: 12, accuracy: 67 }, { week: '2', correct: 10, total: 13, accuracy: 77 },
+        { week: '3', correct: 9, total: 11, accuracy: 82 }, { week: '4', correct: 14, total: 16, accuracy: 88 },
+        { week: '5', correct: 12, total: 15, accuracy: 80 }, { week: '6', correct: 16, total: 18, accuracy: 89 },
+        { week: '7', correct: 15, total: 16, accuracy: 94 }, { week: '8', correct: 18, total: 19, accuracy: 95 },
+      ]};
+    }
+    if (p === '/api/theory' && method === 'GET') {
+      return { subject: 'Тема', theory: '📚 Это демо-объяснение темы — так будет выглядеть текст, который генерирует ИИ, когда backend подключён. Здесь появится структурированная теория с примерами по выбранному предмету.', provider: 'demo' };
+    }
+    if (p === '/api/fipi/random' && method === 'GET') {
+      const subject = new URLSearchParams(path.split('?')[1]).get('subject');
+      return this.fipiTask(subject);
+    }
+    if (p === '/api/fipi/search' && method === 'GET') {
+      const subject = new URLSearchParams(path.split('?')[1]).get('subject');
+      return { tasks: [this.fipiTask(subject), this.fipiTask(subject)], count: 2 };
+    }
+    if (p.startsWith('/api/fipi/hint/') && method === 'GET') {
+      return { hint: '💡 Это демо-подсказка. Когда backend подключён, здесь ИИ объяснит решение по шагам.', provider: 'demo' };
+    }
+    if (p === '/api/fipi/check' && method === 'POST') {
+      const isCorrect = Math.random() > 0.35;
+      return { is_correct: isCorrect, ai_checked: false, correct_answer: 'x = 6', xp_gain: isCorrect ? 10 : 2, new_xp: 650, new_level: 7, leveled_up: false };
+    }
+    if (p.match(/^\/api\/challenge\/start/) && method === 'GET') {
+      return { tasks: [this.fipiTask('Математика'), this.fipiTask('Математика'), this.fipiTask('Математика'), this.fipiTask('Математика'), this.fipiTask('Математика')] };
+    }
+    if (p === '/api/quiz/start' && method === 'GET') {
+      const count = parseInt(new URLSearchParams(path.split('?')[1]).get('count') || '10', 10);
+      const qs = [];
+      for (let i = 0; i < count; i++) qs.push(this.quizPool[i % this.quizPool.length]);
+      return { questions: qs.map(function(q){ return { id: q.id, subject: q.subject, question: q.question, options: q.options }; }) };
+    }
+    if (p === '/api/quiz/check-one' && method === 'POST') {
+      const parsed = JSON.parse(body);
+      const q = this.quizPool.find(function(x){ return x.id === parsed.question_id; });
+      const correct = q ? parsed.selected_index === q._correct : false;
+      return { correct: correct, correct_index: q ? q._correct : 0, xp_gain: correct ? 5 : 0, new_xp: 645, new_level: 7, leveled_up: false };
+    }
+    if (p === '/api/quiz/finish' && method === 'POST') {
+      const parsed = JSON.parse(body);
+      const perfect = parsed.correct_count === parsed.total;
+      return { bonus_xp: perfect ? 10 : 0, perfect: perfect, new_xp: 660, new_level: 7, leveled_up: false };
+    }
+    if (p === '/api/daily/bonus/claim' && method === 'POST') {
+      return { amount: 15, new_xp: 655, new_level: 7 };
+    }
+    if (p === '/api/profile/onboard' && method === 'POST') {
+      return { ok: true };
+    }
+    if (p === '/api/settings/theme' && method === 'POST') {
+      return { ok: true };
+    }
+    if (p === '/api/parent/code' && method === 'GET') {
+      return { code: 'DEMO42' };
+    }
+    if (p === '/api/photo/explain' && method === 'POST') {
+      return { explanation: '📸 Это демо-ответ. Когда backend подключён, здесь появится реальное распознавание и объяснение задания с фото.' };
+    }
+    return undefined;
+  },
+};
+
+/* =====================================================================
+   ТОСТ / УВЕДОМЛЕНИЯ ОБ ОШИБКАХ
+   ===================================================================== */
+function showToast(text, ms){
+  ms = ms || 3000;
+  const el = document.getElementById('toast');
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(function(){ el.classList.remove('show'); }, ms);
+}
+
+function drawHistoryChart(canvas, history){
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const w = rect.width || canvas.parentElement.clientWidth;
+  const h = 120;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = 10;
+  const points = history.map(function(h2){ return h2.accuracy; });
+  const maxY = 100;
+  const stepX = (w - pad * 2) / Math.max(points.length - 1, 1);
+
+  const coords = points.map(function(v, i){
+    return { x: pad + stepX * i, y: pad + (1 - v / maxY) * (h - pad * 2 - 16) };
+  });
+
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, 'rgba(0,245,160,0.35)');
+  grad.addColorStop(1, 'rgba(0,245,160,0)');
+  ctx.beginPath();
+  ctx.moveTo(coords[0].x, h - pad);
+  coords.forEach(function(c){ ctx.lineTo(c.x, c.y); });
+  ctx.lineTo(coords[coords.length - 1].x, h - pad);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.beginPath();
+  coords.forEach(function(c, i){ i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y); });
+  ctx.strokeStyle = '#00F5A0';
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  ctx.shadowColor = 'rgba(0,245,160,0.5)';
+  ctx.shadowBlur = 8;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  coords.forEach(function(c){
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#04060A';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#00F5A0';
+    ctx.stroke();
+  });
+}
+
+function loadingHtml(){
+  return '<div class="loading-dots"><span></span><span></span><span></span></div>';
+}
+function skeletonHome(){
+  return '<div class="skel skel-line" style="width:55%;height:22px;"></div>' +
+    '<div class="skel skel-line" style="width:35%;margin-bottom:18px;"></div>' +
+    '<div class="skel skel-card" style="height:64px;"></div>' +
+    '<div class="skel skel-card" style="height:112px;"></div>' +
+    '<div class="skel skel-card" style="height:80px;"></div>' +
+    '<div class="skel skel-card" style="height:140px;"></div>';
+}
+function skeletonList(rows){
+  rows = rows || 6;
+  let html = '<div class="skel skel-line" style="width:40%;height:22px;margin-bottom:16px;"></div>';
+  for (let i = 0; i < rows; i++) {
+    html += '<div class="skel-row"><div class="skel skel-circle"></div><div style="flex:1;"><div class="skel skel-line" style="width:60%;"></div></div></div>';
+  }
+  return html;
+}
+function skeletonProfile(){
+  return '<div style="display:flex;gap:16px;align-items:center;margin-bottom:20px;">' +
+      '<div class="skel skel-circle" style="width:66px;height:66px;"></div>' +
+      '<div style="flex:1;"><div class="skel skel-line" style="width:50%;"></div><div class="skel skel-line" style="width:35%;"></div></div>' +
+    '</div>' +
+    '<div class="skel skel-card" style="height:70px;"></div>' +
+    '<div class="skel skel-card" style="height:150px;"></div>';
+}
+function errorHtml(message, retryFn){
+  const id = 'retry-' + Math.random().toString(36).slice(2);
+  setTimeout(function(){
+    const btn = document.getElementById(id);
+    if (btn) btn.onclick = retryFn;
+  }, 0);
+  return '<div class="error-box"><span class="ei">😔</span>' + message + '<br><button class="retry-btn" id="' + id + '">Попробовать снова</button></div>';
+}
+
+/* =====================================================================
+   КОНФЕТТИ
+   ===================================================================== */
+const Confetti = {
+  canvas: document.getElementById('confetti-canvas'),
+  ctx: null,
+  particles: [],
+  running: false,
+  init: function(){
+    this.ctx = this.canvas.getContext('2d');
+    this.resize();
+    const self = this;
+    window.addEventListener('resize', function(){ self.resize(); });
+  },
+  resize: function(){
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+  },
+  burst: function(x, y, colors){
+    colors = colors || ['#00F5A0', '#4D8CFF', '#F6C770'];
+    for (let i = 0; i < 26; i++) {
+      const angle = (Math.PI * 2 * i) / 26 + Math.random() * 0.5;
+      const speed = 3 + Math.random() * 4;
+      this.particles.push({
+        x: x, y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 2,
+        r: 2 + Math.random() * 3,
+        life: 1,
+        color: colors[Math.floor(Math.random() * colors.length)],
+      });
+    }
+    if (!this.running) { this.running = true; this.animate(); }
+  },
+  animate: function(){
+    const self = this;
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.particles.forEach(function(p){
+      p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= 0.018;
+      self.ctx.globalAlpha = Math.max(p.life, 0);
+      self.ctx.fillStyle = p.color;
+      self.ctx.beginPath();
+      self.ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      self.ctx.fill();
+    });
+    this.ctx.globalAlpha = 1;
+    this.particles = this.particles.filter(function(p){ return p.life > 0; });
+    if (this.particles.length) {
+      requestAnimationFrame(function(){ self.animate(); });
+    } else {
+      this.running = false;
+    }
+  },
+};
+Confetti.init();
+
+/* =====================================================================
+   ВСПЫШКА ПОВЫШЕНИЯ УРОВНЯ
+   ===================================================================== */
+function showLevelUp(newLevel){
+  const overlay = document.getElementById('levelup-overlay');
+  document.getElementById('levelup-title').textContent = 'Новый уровень: ' + newLevel + '!';
+  document.getElementById('levelup-sub').textContent = 'Так держать — ты растёшь быстрее всех 🚀';
+  overlay.classList.add('show');
+  haptic('success');
+  Confetti.burst(window.innerWidth / 2, window.innerHeight / 2.5);
+  setTimeout(function(){ overlay.classList.remove('show'); }, 2200);
+}
+
+function handleXpResult(result, anchorEl){
+  if (!result) return;
+  if (anchorEl && result.xp_gain > 0) {
+    const rect = anchorEl.getBoundingClientRect();
+    Confetti.burst(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  }
+  if (result.leveled_up) {
+    setTimeout(function(){ showLevelUp(result.new_level); }, 400);
+  }
+  Cache.profile = null;
+}
+
+/* =====================================================================
+   НАВИГАЦИЯ МЕЖДУ ЭКРАНАМИ
+   ===================================================================== */
+const TAB_ORDER = ['home', 'learn', 'quiz', 'compete', 'profile'];
+const Nav = {
+  current: 'home',
+  go: function(tab){
+    if (tab === this.current) return;
+    const fromIdx = TAB_ORDER.indexOf(this.current);
+    const toIdx = TAB_ORDER.indexOf(tab);
+    document.querySelectorAll('.screen').forEach(function(s){
+      s.classList.remove('active', 'slide-back');
+    });
+    const target = document.getElementById('screen-' + tab);
+    if (toIdx < fromIdx) target.classList.add('slide-back');
+    void target.offsetWidth;
+    target.classList.add('active');
+
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelector('.tab[data-tab="' + tab + '"]').classList.add('active');
+
+    this.current = tab;
+    haptic('light');
+    Screens[tab].render();
+  },
+};
+
+const Cache = { profile: null, subjects: null, leaderboard: null, achievements: null };
+
+/* =====================================================================
+   ЭКРАН 1: ГЛАВНАЯ
+   ===================================================================== */
+const Screens = {};
+
+Screens.home = {
+  render: function(){
+    const el = document.getElementById('screen-home');
+    el.innerHTML = skeletonHome();
+
+    const profilePromise = Cache.profile ? Promise.resolve(Cache.profile) : Api.get('/api/profile');
+    profilePromise.then(function(profile){
+      Cache.profile = profile;
+      const subjectsPromise = Cache.subjects ? Promise.resolve(Cache.subjects) : Api.get('/api/subjects').then(function(d){ return d.subjects; });
+      return subjectsPromise.then(function(subjects){
+        Cache.subjects = subjects;
+
+        const name = (tgUser && tgUser.first_name) || profile.full_name || 'Ученик';
+        const sorted = subjects.slice().sort(function(a, b){ return a.pct - b.pct; });
+        const weakestOrNext = sorted[0] || { name: 'Математика', pct: 0 };
+        const xpPct = Math.round((profile.xp_in_level / profile.xp_to_next_level) * 100);
+        const streakAtRisk = profile.today_solved === 0 && profile.streak_days > 0;
+        const greeting = timeOfDayGreeting();
+        const tip = MOTIVATIONAL_TIPS[new Date().getDate() % MOTIVATIONAL_TIPS.length];
+
+        const ringCircumference = 226.19;
+        const ringOffset = ringCircumference - (xpPct / 100) * ringCircumference;
+
+        const calDays = ['вс','пн','вт','ср','чт','пт','сб'];
+        const calHtml = (profile.streak_calendar || []).map(function(d){
+          const dow = calDays[new Date(d.date + 'T00:00:00').getDay()];
+          return '<div class="streak-cal-day">' +
+            '<div class="sc-dot ' + (d.solved ? 'solved' : '') + ' ' + (d.is_today ? 'today' : '') + '">' + (d.solved ? '✓' : '') + '</div>' +
+            '<div class="sc-label">' + dow + '</div>' +
+          '</div>';
+        }).join('');
+
+        el.innerHTML =
+          '<div class="home-hero">' +
+          '<div class="greeting">' + greeting.text + ', ' + escapeHtml(name) + '! ' + greeting.emoji + '</div>' +
+          '<div class="greeting-sub">' + tip + '</div>' +
+          '</div>' +
+
+          (profile.daily_bonus_available ?
+            '<div class="glass card bonus-card" onclick="Screens.home.claimBonus(this)">' +
+              '<span class="bonus-icon">🎁</span>' +
+              '<div class="bonus-text"><div class="bt-big">Ежедневный сюрприз ждёт!</div><div class="bt-small">Нажми, чтобы забрать бонус XP</div></div>' +
+            '</div>' : '') +
+
+          (streakAtRisk ?
+            '<div class="glass card streak-card risk">' +
+              '<span class="streak-flame risk">🔥</span>' +
+              '<div class="streak-text">' +
+                '<div class="big">Серия ' + profile.streak_days + ' дней под угрозой!</div>' +
+                '<div class="small">Реши хотя бы одно задание сегодня, чтобы не потерять её</div>' +
+              '</div>' +
+            '</div>' :
+            '<div class="glass card streak-card">' +
+              '<span class="streak-flame">🔥</span>' +
+              '<div class="streak-text">' +
+                '<div class="big">Сегодня ' + profile.streak_days + '-й день подряд!</div>' +
+                '<div class="small">Отличный темп — так держать' + (profile.streak_freezes ? ' · ' + '❄️'.repeat(Math.min(profile.streak_freezes, 3)) + ' в запасе' : '') + '</div>' +
+              '</div>' +
+            '</div>') +
+          '<div class="glass card" style="padding-top:16px;">' +
+            '<div class="streak-cal">' + calHtml + '</div>' +
+          '</div>' +
+
+          '<div class="glass card continue-card" onclick="SubjectDetail.open(\'' + escapeAttr(weakestOrNext.name) + '\')">' +
+            '<div class="continue-top"><span class="label">Продолжить занятия</span><span class="arrow">→</span></div>' +
+            '<div class="continue-subject">' + escapeHtml(weakestOrNext.name) + '</div>' +
+            '<div class="xp-row"><span>Прогресс</span><span class="mono">' + weakestOrNext.pct + '%</span></div>' +
+            '<div class="xp-track"><div class="xp-fill" style="width:0%" data-target="' + weakestOrNext.pct + '"></div></div>' +
+          '</div>' +
+
+          '<div class="glass card ring-card">' +
+            '<div class="ring-wrap">' +
+              '<svg width="86" height="86" viewBox="0 0 86 86">' +
+                '<circle class="ring-track" cx="43" cy="43" r="36"/>' +
+                '<circle class="ring-fill" id="level-ring" cx="43" cy="43" r="36" stroke-dashoffset="' + ringCircumference + '"/>' +
+              '</svg>' +
+              '<div class="ring-center"><div class="rn">' + profile.level + '</div><div class="rl">lvl</div></div>' +
+            '</div>' +
+            '<div class="ring-info">' +
+              '<div class="rt">До следующего уровня</div>' +
+              '<div class="rv">' + profile.xp_in_level + ' / ' + profile.xp_to_next_level + ' XP</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="glass card">' +
+            '<div class="quick-grid">' +
+              '<button class="quick-btn" onclick="Nav.go(\'quiz\')"><svg class="svgicon qi-svg"><use href="#icon-bolt"/></svg><span class="qt">Переменка</span></button>' +
+              '<button class="quick-btn" onclick="FipiSearch.open()"><svg class="svgicon qi-svg"><use href="#icon-search"/></svg><span class="qt">Банк ФИПИ</span></button>' +
+              '<button class="quick-btn" onclick="Nav.go(\'compete\')"><svg class="svgicon qi-svg"><use href="#icon-medal"/></svg><span class="qt">Соревнования</span></button>' +
+              '<button class="quick-btn" onclick="Nav.go(\'profile\')"><svg class="svgicon qi-svg"><use href="#icon-trophy"/></svg><span class="qt">Достижения</span></button>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="stat-mini">' +
+            '<div class="stat-chip"><div class="num">' + profile.today_solved + '</div><div class="lab">решено сегодня</div></div>' +
+            '<div class="stat-chip"><div class="num">' + profile.streak_days + '</div><div class="lab">дней подряд</div></div>' +
+            '<div class="stat-chip"><div class="num">' + (profile.rank ? '#' + profile.rank : '—') + '</div><div class="lab">место в топе</div></div>' +
+          '</div>';
+        animateFillsIn(el);
+        requestAnimationFrame(function(){
+          const ring = document.getElementById('level-ring');
+          if (ring) ring.style.strokeDashoffset = ringOffset;
+        });
+        if (!profile.onboarded) Onboarding.start();
+        if (profile.freeze_used_today) {
+          setTimeout(function(){ showToast('❄️ Заморозка спасла твою серию! Осталось: ' + profile.streak_freezes, 4000); }, 600);
+        }
+        ThemeManager.apply(profile.theme, profile.accent);
+      });
+    }).catch(function(err){
+      el.innerHTML = errorHtml('Не удалось загрузить данные. Проверь соединение с сервером.', function(){ Screens.home.render(); });
+    });
+  },
+  claimBonus: function(cardEl){
+    cardEl.style.pointerEvents = 'none';
+    Api.post('/api/daily/bonus/claim', {}).then(function(result){
+      haptic('success');
+      const rect = cardEl.getBoundingClientRect();
+      Confetti.burst(rect.left + 40, rect.top + rect.height / 2, ['#F6C770', '#00F5A0']);
+      cardEl.querySelector('.bt-big').textContent = '+' + result.amount + ' XP получено! 🎉';
+      cardEl.querySelector('.bt-small').textContent = 'Возвращайся завтра за новым сюрпризом';
+      cardEl.classList.add('claimed');
+      if (Cache.profile) { Cache.profile.daily_bonus_available = false; Cache.profile.xp = result.new_xp; Cache.profile.level = result.new_level; }
+      setTimeout(function(){ Cache.profile = null; }, 1500);
+    }).catch(function(){
+      showToast('Бонус уже получен сегодня — заходи завтра 🌅');
+      cardEl.style.pointerEvents = '';
+    });
+  },
+};
+
+/* =====================================================================
+   ЭКРАН 2: ОБУЧЕНИЕ
+   ===================================================================== */
+const SUBJECT_ICONS = {
+  'Математика':'📐','Русский язык':'🔤','Физика':'⚛️','Химия':'🧪','Биология':'🧬',
+  'История':'🏛','Обществознание':'⚖️','География':'🌍','Английский язык':'🇬🇧',
+  'Информатика':'💻','Литература':'📖',
+};
+const SUBJECT_COLORS = {
+  'Математика':['#00F5A0','#00C685'],'Русский язык':['#FF9E6D','#E8763A'],'Физика':['#4D8CFF','#2E63D6'],
+  'Химия':['#B98CFF','#8A5FE0'],'Биология':['#6DE0A8','#2FAE73'],'История':['#F6C770','#D9A94E'],
+  'Обществознание':['#7FD4FF','#3AA9E8'],'География':['#5FE0C8','#2BB89E'],'Английский язык':['#FF7FA6','#E8467A'],
+  'Информатика':['#8CA8FF','#5C7FE0'],'Литература':['#FFB37F','#E88A3A'],
+};
+
+Screens.learn = {
+  currentExam: 'ОГЭ',
+  render: function(){
+    const el = document.getElementById('screen-learn');
+    el.innerHTML = '<h2 style="font-size:21px;margin-bottom:16px;">Обучение</h2>' + skeletonList(8);
+    const self = this;
+    const subjectsPromise = Cache.subjects ? Promise.resolve(Cache.subjects) : Api.get('/api/subjects').then(function(d){ return d.subjects; });
+    subjectsPromise.then(function(subjects){
+      Cache.subjects = subjects;
+      self.renderList(subjects);
+    }).catch(function(err){
+      el.innerHTML = errorHtml('Не удалось загрузить предметы.', function(){ Screens.learn.render(); });
+    });
+  },
+  renderList: function(subjects){
+    const el = document.getElementById('screen-learn');
+    const self = this;
+    const pillsHtml = ['ОГЭ', 'ЕГЭ', 'ВПР'].map(function(exam){
+      return '<div class="pill ' + (exam === self.currentExam ? 'active' : '') + '" onclick="Screens.learn.selectExam(\'' + exam + '\')">' + exam + '</div>';
+    }).join('');
+    const rowsHtml = subjects.map(function(s){
+      const colors = SUBJECT_COLORS[s.name] || ['#4D8CFF', '#2E63D6'];
+      return '<div class="subject-row" onclick="SubjectDetail.open(\'' + escapeAttr(s.name) + '\', \'' + self.currentExam + '\')">' +
+        '<div class="subject-icon" style="background:linear-gradient(135deg,' + colors[0] + '33,' + colors[1] + '22);box-shadow:inset 0 0 0 1px ' + colors[0] + '40;">' + (SUBJECT_ICONS[s.name] || '📘') + '</div>' +
+        '<div class="subject-info">' +
+          '<div class="name">' + escapeHtml(s.name) + '</div>' +
+          '<div class="subject-track"><div class="subject-fill" data-target="' + s.pct + '" style="width:0%;background:linear-gradient(90deg,' + colors[1] + ',' + colors[0] + ');"></div></div>' +
+        '</div>' +
+        '<div class="subject-pct mono">' + s.pct + '%</div>' +
+      '</div>';
+    }).join('');
+
+    el.innerHTML =
+      '<h2 style="font-size:21px;margin-bottom:16px;">Обучение</h2>' +
+      '<div class="exam-pills">' + pillsHtml + '</div>' +
+      '<div>' + rowsHtml + '</div>';
+    animateFillsIn(el, '.subject-fill');
+  },
+  selectExam: function(exam){
+    this.currentExam = exam;
+    haptic('selection');
+    this.renderList(Cache.subjects);
+  },
+};
+
+/* -------- Детальный оверлей предмета -------- */
+const SubjectDetail = {
+  subject: null,
+  exam: 'ОГЭ',
+  mode: 'theory',
+  currentTask: null,
+
+  open: function(subject, exam){
+    this.subject = subject;
+    this.exam = exam || 'ОГЭ';
+    this.mode = 'theory';
+    document.getElementById('subject-overlay-title').textContent = subject;
+    document.querySelectorAll('.overlay-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.mode === 'theory'); });
+    document.getElementById('subject-overlay').classList.add('open');
+    haptic('light');
+    this.load();
+  },
+  close: function(){
+    document.getElementById('subject-overlay').classList.remove('open');
+  },
+  setMode: function(mode){
+    this.mode = mode;
+    document.querySelectorAll('.overlay-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.mode === mode); });
+    haptic('selection');
+    this.load();
+  },
+  load: function(){
+    const body = document.getElementById('subject-overlay-body');
+    body.innerHTML = skeletonList(2);
+    const self = this;
+
+    if (this.mode === 'theory') {
+      Api.get('/api/theory?subject=' + encodeURIComponent(this.subject)).then(function(data){
+        body.innerHTML = '<div class="glass card theory-box">' + escapeHtml(data.theory).replace(/\n/g, '<br>') + '</div>';
+        renderMath(body);
+      }).catch(function(){
+        body.innerHTML = errorHtml('Не удалось загрузить теорию.', function(){ self.load(); });
+      });
+    } else if (this.mode === 'mock') {
+      Api.get('/api/fipi/search?subject=' + encodeURIComponent(this.subject) + '&exam_type=' + this.exam + '&limit=5').then(function(data){
+        if (!data.tasks.length) {
+          body.innerHTML = errorHtml('Пока нет заданий ' + self.exam + ' по «' + self.subject + '».', function(){ self.load(); });
+          return;
+        }
+        body.innerHTML = data.tasks.map(function(t){ return self.renderStaticTask(t); }).join('');
+        renderMath(body);
+      }).catch(function(){
+        body.innerHTML = errorHtml('Не удалось загрузить пробник.', function(){ self.load(); });
+      });
+    } else {
+      Api.get('/api/fipi/random?subject=' + encodeURIComponent(this.subject) + '&exam_type=' + this.exam).then(function(task){
+        self.currentTask = task;
+        body.innerHTML = self.renderInteractiveTask(task);
+        renderMath(body);
+      }).catch(function(){
+        body.innerHTML = errorHtml('Не удалось загрузить задание.', function(){ self.load(); });
+      });
+    }
+  },
+  renderStaticTask: function(t){
+    return '<div class="glass card task-card">' +
+      '<div class="task-meta"><span class="tag">' + t.subject + ' · ' + t.exam_type + ' №' + t.task_number + '</span><span class="stars">' + '⭐'.repeat(t.difficulty) + '</span></div>' +
+      '<div class="task-question">' + escapeHtml(t.question) + '</div>' +
+      '<details><summary style="color:var(--emerald);font-size:13.5px;font-weight:600;cursor:pointer;">Показать ответ</summary>' +
+      '<div class="hint-box" style="margin-top:10px;">' + escapeHtml(t.answer) + '</div></details>' +
+    '</div>';
+  },
+  renderInteractiveTask: function(t){
+    return '<div class="glass card task-card" id="active-task-card">' +
+      '<div class="task-meta"><span class="tag">' + t.subject + ' · ' + t.exam_type + ' №' + t.task_number + '</span><span class="stars">' + '⭐'.repeat(t.difficulty) + '</span></div>' +
+      '<div class="adaptive-tag"><svg class="svgicon" style="width:13px;height:13px;"><use href="#icon-bolt"/></svg>Подобрано под твой уровень</div>' +
+      '<div class="task-question">' + escapeHtml(t.question) + '</div>' +
+      '<input type="text" class="answer-input" id="answer-input" placeholder="Введи свой ответ...">' +
+      '<div class="task-actions">' +
+        '<button class="btn btn-emerald" onclick="SubjectDetail.checkAnswer()"><svg class="svgicon" style="width:16px;height:16px;"><use href="#icon-check"/></svg>Проверить</button>' +
+        '<button class="btn btn-ghost" onclick="SubjectDetail.showHint()"><svg class="svgicon" style="width:16px;height:16px;"><use href="#icon-bulb"/></svg>Подсказка</button>' +
+        '<button class="btn btn-ghost" onclick="SubjectDetail.load()"><svg class="svgicon" style="width:16px;height:16px;"><use href="#icon-arrow-right"/></svg>Следующее</button>' +
+      '</div>' +
+      '<label class="photo-btn" for="photo-input-task">' +
+        '<svg class="svgicon" style="width:15px;height:15px;"><use href="#icon-camera"/></svg>Сфотографировать своё задание из учебника' +
+      '</label>' +
+      '<input type="file" id="photo-input-task" accept="image/*" capture="environment" style="display:none" onchange="SubjectDetail.handlePhoto(event)">' +
+      '<div id="photo-result-slot"></div>' +
+      '<div id="task-feedback-slot"></div>' +
+    '</div>';
+  },
+  handlePhoto: function(event){
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const slot = document.getElementById('photo-result-slot');
+    slot.innerHTML = loadingHtml();
+    const reader = new FileReader();
+    reader.onload = function(){
+      const base64 = reader.result.split(',')[1];
+      Api.post('/api/photo/explain', { image_base64: base64, mime_type: file.type || 'image/jpeg' }).then(function(data){
+        slot.innerHTML = '<div class="hint-box">' + escapeHtml(data.explanation).replace(/\n/g, '<br>') + '</div>';
+        renderMath(slot);
+      }).catch(function(err){
+        slot.innerHTML = '<div class="task-feedback incorrect">😔 ' + escapeHtml(err.message || 'Не удалось распознать фото') + '</div>';
+      });
+    };
+    reader.readAsDataURL(file);
+  },
+  checkAnswer: function(){
+    const input = document.getElementById('answer-input');
+    const answer = input.value.trim();
+    if (!answer) { showToast('Сначала введи ответ 🙂'); return; }
+    const btn = document.querySelector('#active-task-card .btn-emerald');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = 'Проверяю…';
+    const self = this;
+    Api.post('/api/fipi/check', { task_id: this.currentTask.id, answer: answer }).then(function(result){
+      const slot = document.getElementById('task-feedback-slot');
+      slot.innerHTML = '<div class="task-feedback ' + (result.is_correct ? 'correct' : 'incorrect') + '">' +
+        (result.is_correct ? '✅ Верно! +' + result.xp_gain + ' XP' : '❌ Не совсем. Правильный ответ: ' + escapeHtml(result.correct_answer)) +
+        '</div>';
+      renderMath(slot);
+      haptic(result.is_correct ? 'success' : 'error');
+      if (result.is_correct) {
+        const card = document.getElementById('active-task-card');
+        const rect = card.getBoundingClientRect();
+        Confetti.burst(rect.left + rect.width / 2, rect.top + 40);
+      }
+      handleXpResult(result);
+    }).catch(function(){
+      showToast('Не удалось проверить ответ. Попробуй ещё раз.');
+    }).finally(function(){
+      btn.disabled = false; btn.innerHTML = originalHtml;
+    });
+  },
+  showHint: function(){
+    const card = document.getElementById('active-task-card');
+    let hintBox = document.getElementById('hint-box-live');
+    if (!hintBox) {
+      hintBox = document.createElement('div');
+      hintBox.id = 'hint-box-live';
+      hintBox.className = 'hint-box';
+      hintBox.innerHTML = loadingHtml();
+      card.appendChild(hintBox);
+    }
+    const taskId = this.currentTask.id;
+    Api.get('/api/fipi/hint/' + taskId).then(function(data){
+      hintBox.innerHTML = escapeHtml(data.hint).replace(/\n/g, '<br>');
+      renderMath(hintBox);
+    }).catch(function(){
+      hintBox.innerHTML = '😔 Подсказка временно недоступна, попробуй позже.';
+    });
+  },
+};
+
+/* -------- Поиск по банку ФИПИ -------- */
+const FipiSearch = {
+  subjectsLoaded: false,
+  open: function(){
+    haptic('light');
+    document.getElementById('fipi-search-overlay').classList.add('open');
+    if (!this.subjectsLoaded) {
+      const select = document.getElementById('fipi-search-subject');
+      const subjects = Cache.subjects ? Cache.subjects.map(function(s){ return s.name; }) : Object.keys(SUBJECT_ICONS);
+      subjects.forEach(function(name){
+        const opt = document.createElement('option');
+        opt.value = name; opt.textContent = name;
+        select.appendChild(opt);
+      });
+      this.subjectsLoaded = true;
+    }
+    const body = document.getElementById('fipi-search-body');
+    if (!body.innerHTML) {
+      body.innerHTML = '<div class="error-box"><span class="ei">🔍</span>Введи слово из темы или выбери фильтры выше — либо нажми «Случайное задание»</div>';
+    }
+  },
+  close: function(){
+    document.getElementById('fipi-search-overlay').classList.remove('open');
+  },
+  run: function(){
+    const q = document.getElementById('fipi-search-input').value.trim();
+    const subject = document.getElementById('fipi-search-subject').value;
+    const exam = document.getElementById('fipi-search-exam').value;
+    const num = document.getElementById('fipi-search-number').value;
+    const body = document.getElementById('fipi-search-body');
+    body.innerHTML = skeletonList(4);
+    haptic('light');
+
+    let url = '/api/fipi/search?limit=20';
+    if (q) url += '&q=' + encodeURIComponent(q);
+    if (subject) url += '&subject=' + encodeURIComponent(subject);
+    if (exam) url += '&exam_type=' + exam;
+    if (num) url += '&task_number=' + num;
+
+    Api.get(url).then(function(data){
+      if (!data.tasks.length) {
+        body.innerHTML = '<div class="error-box"><span class="ei">😔</span>Ничего не найдено — попробуй другой запрос или фильтры</div>';
+        return;
+      }
+      body.innerHTML = data.tasks.map(function(t){ return SubjectDetail.renderStaticTask(t); }).join('');
+      renderMath(body);
+    }).catch(function(){
+      body.innerHTML = errorHtml('Не удалось выполнить поиск.', function(){ FipiSearch.run(); });
+    });
+  },
+  random: function(){
+    const body = document.getElementById('fipi-search-body');
+    body.innerHTML = skeletonList(1);
+    haptic('light');
+    Api.get('/api/fipi/random?adaptive=false').then(function(task){
+      body.innerHTML = SubjectDetail.renderStaticTask(task);
+      renderMath(body);
+    }).catch(function(){
+      body.innerHTML = errorHtml('Не удалось получить случайное задание.', function(){ FipiSearch.random(); });
+    });
+  },
+};
+
+/* =====================================================================
+   ЭКРАН 3: ПЕРЕМЕНКА
+   ===================================================================== */
+Screens.quiz = {
+  state: 'intro',
+  count: 10,
+  questions: [],
+  index: 0,
+  correctCount: 0,
+  answeredCurrent: false,
+
+  render: function(){
+    if (this.state === 'intro') return this.renderIntro();
+    if (this.state === 'playing') return this.renderQuestion();
+    if (this.state === 'result') return this.renderResult();
+  },
+  renderIntro: function(){
+    const el = document.getElementById('screen-quiz');
+    const counts = [5, 10, 15];
+    const self = this;
+    el.innerHTML =
+      '<div class="quiz-intro">' +
+        '<svg class="svgicon" style="width:52px;height:52px;margin:0 auto 14px;color:var(--emerald);filter:drop-shadow(0 0 20px rgba(0,245,160,0.4));"><use href="#icon-bolt"/></svg>' +
+        '<h2 style="font-size:22px;">Переменка</h2>' +
+        '<p style="color:var(--text-secondary);font-size:14px;margin-top:8px;">Быстрая разминка вперемешку по разным предметам</p>' +
+        '<div class="quiz-count-row">' +
+          counts.map(function(c){ return '<button class="count-btn ' + (c === self.count ? 'active' : '') + '" onclick="Screens.quiz.selectCount(' + c + ')">' + c + '</button>'; }).join('') +
+        '</div>' +
+        '<button class="btn btn-emerald btn-block" onclick="Screens.quiz.start()">🚀 Начать переменку</button>' +
+      '</div>';
+  },
+  selectCount: function(c){
+    this.count = c;
+    haptic('selection');
+    this.renderIntro();
+  },
+  start: function(){
+    const el = document.getElementById('screen-quiz');
+    el.innerHTML = loadingHtml();
+    const self = this;
+    Api.get('/api/quiz/start?count=' + this.count).then(function(data){
+      self.questions = data.questions;
+      self.index = 0;
+      self.correctCount = 0;
+      self.answeredCurrent = false;
+      self.state = 'playing';
+      self.renderQuestion();
+    }).catch(function(){
+      el.innerHTML = errorHtml('Не удалось загрузить вопросы переменки.', function(){ self.start(); });
+    });
+  },
+  renderQuestion: function(){
+    const el = document.getElementById('screen-quiz');
+    const q = this.questions[this.index];
+    const total = this.questions.length;
+    const idx = this.index;
+    const segs = this.questions.map(function(_, i){
+      let cls = 'seg';
+      if (i < idx) cls += ' done';
+      else if (i === idx) cls += ' current';
+      return '<div class="' + cls + '"></div>';
+    }).join('');
+
+    el.innerHTML =
+      '<div class="quiz-progress">' + segs + '</div>' +
+      '<div class="quiz-subject-tag">' + escapeHtml(q.subject) + ' · ' + (this.index + 1) + '/' + total + '</div>' +
+      '<div class="quiz-question">' + escapeHtml(q.question) + '</div>' +
+      '<div class="quiz-options">' +
+        q.options.map(function(opt, i){ return '<button class="quiz-option" data-idx="' + i + '" onclick="Screens.quiz.answer(' + i + ')">' + escapeHtml(opt) + '</button>'; }).join('') +
+      '</div>';
+  },
+  answer: function(selectedIdx){
+    if (this.answeredCurrent) return;
+    this.answeredCurrent = true;
+    const q = this.questions[this.index];
+    const optionEls = document.querySelectorAll('.quiz-option');
+    optionEls.forEach(function(o){ o.classList.add('disabled'); });
+    const self = this;
+
+    Api.post('/api/quiz/check-one', { question_id: q.id, selected_index: selectedIdx }).then(function(result){
+      optionEls[selectedIdx].classList.add(result.correct ? 'correct' : 'incorrect');
+      if (!result.correct) optionEls[result.correct_index].classList.add('correct');
+
+      haptic(result.correct ? 'success' : 'error');
+      if (result.correct) {
+        self.correctCount++;
+        const rect = optionEls[selectedIdx].getBoundingClientRect();
+        Confetti.burst(rect.left + rect.width / 2, rect.top + rect.height / 2, ['#00F5A0']);
+      }
+      handleXpResult(result);
+
+      setTimeout(function(){
+        self.index++;
+        if (self.index >= self.questions.length) {
+          self.finish();
+        } else {
+          self.answeredCurrent = false;
+          self.renderQuestion();
+        }
+      }, 900);
+    }).catch(function(){
+      showToast('Не удалось проверить ответ.');
+      self.answeredCurrent = false;
+      optionEls.forEach(function(o){ o.classList.remove('disabled'); });
+    });
+  },
+  finish: function(){
+    this.state = 'result';
+    const self = this;
+    Api.post('/api/quiz/finish', { correct_count: this.correctCount, total: this.questions.length }).then(function(bonus){
+      self.renderResult(bonus);
+    }).catch(function(){
+      self.renderResult(null);
+    });
+  },
+  renderResult: function(bonus){
+    const el = document.getElementById('screen-quiz');
+    const total = this.questions.length;
+    const pct = Math.round((this.correctCount / total) * 100);
+    const icon = pct === 100 ? '🏆' : pct >= 70 ? '🎉' : pct >= 40 ? '💪' : '📚';
+    const xpEarned = this.correctCount * 5 + (bonus && bonus.bonus_xp ? bonus.bonus_xp : 0);
+
+    el.innerHTML =
+      '<div class="quiz-result">' +
+        '<span class="ricon">' + icon + '</span>' +
+        '<div class="rscore">' + this.correctCount + '/' + total + '</div>' +
+        '<div class="rxp">+' + xpEarned + ' XP заработано</div>' +
+        (bonus && bonus.perfect ? '<div style="color:var(--emerald);font-weight:700;margin-bottom:18px;">🎯 Без единой ошибки! Достижение получено</div>' : '') +
+        '<button class="btn btn-emerald btn-block" onclick="Screens.quiz.restart()">🔁 Начать заново</button>' +
+      '</div>';
+    if (bonus && bonus.leveled_up) setTimeout(function(){ showLevelUp(bonus.new_level); }, 500);
+  },
+  restart: function(){
+    this.state = 'intro';
+    haptic('light');
+    this.renderIntro();
+  },
+};
+
+/* =====================================================================
+   ЭКРАН 4: СОРЕВНОВАНИЯ
+   ===================================================================== */
+Screens.compete = {
+  render: function(){
+    const el = document.getElementById('screen-compete');
+    el.innerHTML = '<h2 style="font-size:21px;margin-bottom:16px;">Соревнования</h2>' + skeletonList(5);
+    const dataPromise = Cache.leaderboard ? Promise.resolve(Cache.leaderboard) : Api.get('/api/leaderboard?limit=10');
+    dataPromise.then(function(data){
+      Cache.leaderboard = data;
+
+      const rankText = data.my_rank
+        ? (data.gap_to_next_rank > 0
+            ? 'До места ' + (data.my_rank - 1) + ' осталось <b>' + data.gap_to_next_rank + ' XP</b>'
+            : 'Ты на вершине рейтинга! 🏆')
+        : 'Реши первое задание, чтобы попасть в рейтинг';
+
+      const medals = ['🥇', '🥈', '🥉'];
+      const rowsHtml = data.leaderboard.map(function(u, i){
+        const isMe = tgUser && u.user_id === tgUser.id;
+        return '<div class="leader-row ' + (isMe ? 'me' : '') + '">' +
+          '<div class="leader-rank">' + (medals[i] || (i + 1)) + '</div>' +
+          '<div class="leader-avatar">' + (u.name[0] || 'У').toUpperCase() + '</div>' +
+          '<div class="leader-name">' + escapeHtml(u.name) + '</div>' +
+          '<div class="leader-xp">' + u.xp + ' XP</div>' +
+        '</div>';
+      }).join('');
+
+      el.innerHTML =
+        '<h2 style="font-size:21px;margin-bottom:16px;">Соревнования</h2>' +
+        '<div class="rank-status">' +
+          '<div class="rnum">' + (data.my_rank ? '#' + data.my_rank : '—') + '</div>' +
+          '<div class="rtext">' + rankText + '</div>' +
+        '</div>' +
+        '<div class="challenge-card" style="margin-bottom:16px;">' +
+          '<h3>🥇 Челлендж недели</h3>' +
+          '<p>5 заданий по математике — набери максимум XP и поднимись в рейтинге</p>' +
+          '<button class="btn btn-emerald" onclick="Screens.compete.startChallenge(\'Математика\')">Начать челлендж</button>' +
+        '</div>' +
+        '<div class="glass card" id="leaderboard-list">' + rowsHtml + '</div>';
+    }).catch(function(){
+      el.innerHTML = '<h2 style="font-size:21px;margin-bottom:16px;">Соревнования</h2>' +
+        errorHtml('Не удалось загрузить таблицу лидеров.', function(){ Screens.compete.render(); });
+    });
+  },
+  startChallenge: function(subject){
+    const el = document.getElementById('screen-compete');
+    el.innerHTML = '<h2 style="font-size:21px;margin-bottom:16px;">Челлендж: ' + escapeHtml(subject) + '</h2>' + loadingHtml();
+    Api.get('/api/challenge/start?subject=' + encodeURIComponent(subject)).then(function(data){
+      el.innerHTML =
+        '<h2 style="font-size:21px;margin-bottom:16px;">🥇 Челлендж: ' + escapeHtml(subject) + '</h2>' +
+        data.tasks.map(function(t, i){
+          return '<div class="glass card task-card">' +
+            '<div class="task-meta"><span class="tag">Задание ' + (i + 1) + '/5</span><span class="stars">' + '⭐'.repeat(t.difficulty) + '</span></div>' +
+            '<div class="task-question">' + escapeHtml(t.question) + '</div>' +
+            '<input type="text" class="answer-input" id="challenge-input-' + t.id + '" placeholder="Введи ответ...">' +
+            '<button class="btn btn-emerald btn-block" onclick="Screens.compete.checkChallengeAnswer(' + t.id + ')">✅ Проверить</button>' +
+            '<div id="challenge-feedback-' + t.id + '"></div>' +
+          '</div>';
+        }).join('') +
+        '<button class="btn btn-ghost btn-block" onclick="Screens.compete.render()">← Назад к рейтингу</button>';
+    }).catch(function(){
+      el.innerHTML = errorHtml('Не удалось загрузить челлендж.', function(){ Screens.compete.startChallenge(subject); });
+    });
+  },
+  checkChallengeAnswer: function(taskId){
+    const input = document.getElementById('challenge-input-' + taskId);
+    const answer = input.value.trim();
+    if (!answer) { showToast('Введи ответ 🙂'); return; }
+    Api.post('/api/fipi/check', { task_id: taskId, answer: answer }).then(function(result){
+      const slot = document.getElementById('challenge-feedback-' + taskId);
+      slot.innerHTML = '<div class="task-feedback ' + (result.is_correct ? 'correct' : 'incorrect') + '">' +
+        (result.is_correct ? '✅ Верно! +' + result.xp_gain + ' XP' : '❌ Неверно. Правильный ответ: ' + escapeHtml(result.correct_answer)) +
+        '</div>';
+      haptic(result.is_correct ? 'success' : 'error');
+      if (result.is_correct) {
+        const rect = slot.getBoundingClientRect();
+        Confetti.burst(rect.left + rect.width / 2, rect.top);
+      }
+      handleXpResult(result);
+      Cache.leaderboard = null;
+    }).catch(function(){
+      showToast('Не удалось проверить ответ.');
+    });
+  },
+};
+
+/* =====================================================================
+   ЭКРАН 5: ПРОФИЛЬ
+   ===================================================================== */
+Screens.profile = {
+  render: function(){
+    const el = document.getElementById('screen-profile');
+    el.innerHTML = skeletonProfile();
+    const profilePromise = Cache.profile ? Promise.resolve(Cache.profile) : Api.get('/api/profile');
+    profilePromise.then(function(profile){
+      Cache.profile = profile;
+      const achPromise = Cache.achievements ? Promise.resolve(Cache.achievements) : Api.get('/api/achievements');
+      return achPromise.then(function(achData){
+        Cache.achievements = achData;
+
+        const name = (tgUser && tgUser.first_name) || profile.full_name || 'Ученик';
+        const xpPct = Math.round((profile.xp_in_level / profile.xp_to_next_level) * 100);
+
+        const badgesHtml = achData.achievements.map(function(a){
+          const parts = a.title.split(' ');
+          const icon = parts[0];
+          const label = parts.slice(1).join(' ');
+          let progressHtml = '';
+          if (!a.earned && a.progress) {
+            const pct = Math.round((a.progress.current / a.progress.target) * 100);
+            progressHtml = '<div class="badge-progress"><div class="badge-progress-track"><div class="badge-progress-fill" style="width:' + pct + '%"></div></div>' +
+              '<div class="badge-progress-label">' + a.progress.current + '/' + a.progress.target + '</div></div>';
+          }
+          return '<div class="badge-card ' + (a.earned ? 'earned' : 'locked') + '"><span class="bi">' + icon + '</span><span class="bt">' + label + '</span>' + progressHtml + '</div>';
+        }).join('');
+
+        el.innerHTML =
+          '<div class="profile-head">' +
+            '<div class="profile-avatar">' + (name[0] || 'У').toUpperCase() + '</div>' +
+            '<div>' +
+              '<div class="profile-name">' + escapeHtml(name) + '</div>' +
+              '<div class="profile-meta">Класс ' + (profile.grade || '—') + ' · Цель ' + escapeHtml(profile.goal || '—') + '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="glass card">' +
+            '<div class="xp-row"><span>Уровень <span class="level-badge">' + profile.level + '</span></span><span class="mono">' + profile.xp + ' XP всего</span></div>' +
+            '<div class="xp-track"><div class="xp-fill" style="width:0%" data-target="' + xpPct + '"></div></div>' +
+          '</div>' +
+
+          '<div class="glass card">' +
+            '<h3 style="font-size:15px;margin-bottom:6px;">Динамика точности</h3>' +
+            '<div id="history-chart-wrap"><div class="loading-dots"><span></span><span></span><span></span></div></div>' +
+          '</div>' +
+
+          '<div class="glass card">' +
+            '<h3 style="font-size:15px;margin-bottom:14px;">Достижения</h3>' +
+            '<div class="badge-grid">' + badgesHtml + '</div>' +
+          '</div>' +
+
+          '<div class="glass card">' +
+            '<h3 style="font-size:15px;margin-bottom:14px;">Оформление</h3>' +
+            '<div class="settings-row">' +
+              '<span class="settings-label">Тема</span>' +
+              '<div class="segmented">' +
+                '<button class="seg-btn ' + (profile.theme !== 'light' ? 'active' : '') + '" onclick="ThemeManager.set(\'dark\', Cache.profile.accent)">🌙 Тёмная</button>' +
+                '<button class="seg-btn ' + (profile.theme === 'light' ? 'active' : '') + '" onclick="ThemeManager.set(\'light\', Cache.profile.accent)">☀️ Светлая</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="settings-row" style="margin-top:12px;">' +
+              '<span class="settings-label">Акцент</span>' +
+              '<div class="segmented">' +
+                '<button class="seg-btn ' + (profile.accent !== 'ruby' ? 'active' : '') + '" onclick="ThemeManager.set(Cache.profile.theme, \'emerald\')"><span class="swatch" style="background:#00F5A0;"></span>Изумруд</button>' +
+                '<button class="seg-btn ' + (profile.accent === 'ruby' ? 'active' : '') + '" onclick="ThemeManager.set(Cache.profile.theme, \'ruby\')"><span class="swatch" style="background:#FF5C7A;"></span>Рубин</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="glass card">' +
+            '<h3 style="font-size:15px;margin-bottom:6px;">👪 Родительский доступ</h3>' +
+            '<p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">Дай этот код родителям — они напишут боту <span class="mono">/parent КОД</span> и увидят сводку успеваемости (без доступа к переписке).</p>' +
+            '<div id="parent-code-slot"><button class="btn btn-ghost btn-block" onclick="Screens.profile.loadParentCode()">Показать код</button></div>' +
+          '</div>' +
+
+          '<button class="btn btn-aqua btn-block" onclick="Screens.profile.share(' + profile.xp + ', ' + profile.level + ')">' +
+            '<svg class="svgicon" style="width:16px;height:16px;"><use href="#icon-share"/></svg>Поделиться прогрессом</button>';
+        animateFillsIn(el);
+        Screens.profile.loadChart();
+      });
+    }).catch(function(){
+      el.innerHTML = errorHtml('Не удалось загрузить профиль.', function(){ Screens.profile.render(); });
+    });
+  },
+  loadChart: function(){
+    const wrap = document.getElementById('history-chart-wrap');
+    if (!wrap) return;
+    Api.get('/api/profile/history?weeks=8').then(function(data){
+      if (!data.history.length) {
+        wrap.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;padding:12px 0;">Пока недостаточно данных — реши больше заданий, и здесь появится график 📈</div>';
+        return;
+      }
+      wrap.innerHTML = '<canvas id="history-canvas" style="width:100%;height:120px;display:block;"></canvas>';
+      drawHistoryChart(document.getElementById('history-canvas'), data.history);
+    }).catch(function(){
+      wrap.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;">Не удалось загрузить график.</div>';
+    });
+  },
+  loadParentCode: function(){
+    const slot = document.getElementById('parent-code-slot');
+    slot.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+    Api.get('/api/parent/code').then(function(data){
+      slot.innerHTML = '<div class="parent-code-box"><span class="parent-code">' + data.code + '</span>' +
+        '<button class="btn btn-ghost" style="padding:8px 14px;font-size:12px;" onclick="Screens.profile.copyCode(\'' + data.code + '\')">Копировать</button></div>';
+    }).catch(function(){
+      slot.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;">Не удалось получить код.</div>';
+    });
+  },
+  copyCode: function(code){
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(code).then(function(){ showToast('Код скопирован: ' + code); });
+    } else {
+      showToast('Код: ' + code);
+    }
+  },
+  share: function(xp, level){
+    const text = 'Я на ' + level + ' уровне в AI Tutor Pro и уже набрал ' + xp + ' XP! 🚀 Присоединяйся к подготовке к экзаменам:';
+    const botUrl = 'https://t.me/your_bot';
+    haptic('light');
+    if (tg && tg.openTelegramLink) {
+      tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(botUrl) + '&text=' + encodeURIComponent(text));
+    } else if (navigator.share) {
+      navigator.share({ text: text, url: botUrl });
+    } else {
+      showToast('Скопировано: ' + text);
+    }
+  },
+};
+
+/* =====================================================================
+   УТИЛИТЫ
+   ===================================================================== */
+function timeOfDayGreeting(){
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return { text: 'Доброе утро', emoji: '☀️' };
+  if (h >= 12 && h < 18) return { text: 'Добрый день', emoji: '🌤' };
+  if (h >= 18 && h < 23) return { text: 'Добрый вечер', emoji: '🌆' };
+  return { text: 'Не спится?', emoji: '🌙' };
+}
+
+const MOTIVATIONAL_TIPS = [
+  'Даже одно задание сегодня — это шаг вперёд 🚀',
+  'Маленькие ежедневные усилия дают большой результат 💪',
+  'Твой мозг любит повторение — не пропускай дни подряд 🧠',
+  'Лучшие результаты у тех, кто занимается понемногу, но регулярно ⏳',
+  'Ошибки — это нормально, это часть обучения 🌱',
+  'Сегодняшняя практика — это завтрашний высокий балл 🎯',
+  'Соберись с духом — впереди отличный день учёбы ⭐',
+];
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : str;
+  return div.innerHTML;
+}
+function escapeAttr(str){
+  return String(str == null ? '' : str).replace(/'/g, "\\'");
+}
+function animateFillsIn(container, selector){
+  selector = selector || '.xp-fill';
+  requestAnimationFrame(function(){
+    container.querySelectorAll(selector).forEach(function(bar){
+      bar.style.width = (bar.dataset.target || 0) + '%';
+    });
+  });
+}
+function renderMath(container){
+  if (window.renderMathInElement) {
+    try {
+      window.renderMathInElement(container, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '$', right: '$', display: false },
+          { left: '\\(', right: '\\)', display: false },
+          { left: '\\[', right: '\\]', display: true },
+        ],
+        throwOnError: false,
+      });
+    } catch (e) { /* игнорируем */ }
+  } else {
+    setTimeout(function(){ if (window.renderMathInElement) renderMath(container); }, 300);
+  }
+}
+
+/* =====================================================================
+   ТЕМА И АКЦЕНТНЫЙ ЦВЕТ
+   ===================================================================== */
+const ThemeManager = {
+  current: { theme: 'dark', accent: 'emerald' },
+  apply: function(theme, accent){
+    this.current = { theme: theme || 'dark', accent: accent || 'emerald' };
+    document.documentElement.setAttribute('data-theme', this.current.theme);
+    document.documentElement.setAttribute('data-accent', this.current.accent);
+  },
+  set: function(theme, accent){
+    haptic('light');
+    this.apply(theme, accent);
+    if (Cache.profile) { Cache.profile.theme = theme; Cache.profile.accent = accent; }
+    Api.post('/api/settings/theme', { theme: theme, accent: accent }).catch(function(){});
+    if (Nav.current === 'profile') Screens.profile.render();
+  },
+};
+
+const Onboarding = {
+  step: 0,
+  slides: [
+    { icon: '👋', title: 'Добро пожаловать в AI Tutor Pro!', text: 'Быстро покажем главные возможности — это займёт 20 секунд.' },
+    { icon: '📚', title: 'Обучение с ИИ', text: 'В «Обучении» выбирай предмет — там теория, практика с проверкой ответа и подсказками, домашка и пробники.' },
+    { icon: '⚡', title: 'Переменка', text: 'Быстрый квиз на 5–15 вопросов вперемешку по всем предметам — отличная разминка между уроками.' },
+    { icon: '🏆', title: 'Соревнуйся и расти', text: 'Следи за местом в рейтинге, выполняй челленджи и собирай достижения в профиле.' },
+  ],
+  start: function(){
+    this.step = 0;
+    this.render();
+    document.getElementById('onboarding-overlay').classList.add('show');
+  },
+  render: function(){
+    const s = this.slides[this.step];
+    const iconEl = document.getElementById('ob-icon');
+    iconEl.innerHTML = this.step === 0
+      ? '<svg class="svgicon" style="width:56px;height:56px;"><use href="#icon-mascot"/></svg>'
+      : s.icon;
+    document.getElementById('ob-title').textContent = s.title;
+    document.getElementById('ob-text').textContent = s.text;
+    document.getElementById('ob-next').textContent = this.step === this.slides.length - 1 ? 'Начать!' : 'Дальше';
+    const dots = document.getElementById('ob-dots');
+    dots.innerHTML = this.slides.map((_, i) => '<span class="' + (i === this.step ? 'active' : '') + '"></span>').join('');
+  },
+  next: function(){
+    haptic('light');
+    if (this.step < this.slides.length - 1) {
+      this.step++;
+      this.render();
+    } else {
+      this.finish();
+    }
+  },
+  finish: function(){
+    document.getElementById('onboarding-overlay').classList.remove('show');
+    Api.post('/api/profile/onboard', {}).catch(function(){});
+    if (Cache.profile) Cache.profile.onboarded = true;
+  },
+};
+
+/* =====================================================================
+   ЗАПУСК ПРИЛОЖЕНИЯ
+   ===================================================================== */
+if (!IS_INSIDE_TELEGRAM) {
+  showToast('Демо-режим вне Telegram — используется тестовый профиль', 4000);
+}
+Screens.home.render();
+</script>
+
+</body>
+  </html>
